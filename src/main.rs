@@ -5,6 +5,9 @@ use std::io::{stdin, stdout, Write};
 enum TokenType {
     Integer,
     Plus,
+    Minus,
+    Times,
+    Divide,
     EOF,
 }
 
@@ -44,17 +47,19 @@ impl Display for Token {
 }
 
 struct Interpreter {
-    text: String, // ?
+    text: String,
     pos: usize,
     current_token: Option<Token>,
+    current_char: Option<char>,
 }
 
 impl Interpreter {
     fn new(text: String) -> Self {
         Interpreter {
-            text,
+            text: text.clone(),
             pos: 0,
             current_token: None,
+            current_char: Some(text.as_bytes()[0] as char),
         }
     }
 
@@ -62,27 +67,72 @@ impl Interpreter {
         panic!("Error parsing input");
     }
 
-    fn get_next_token(&mut self) -> Token {
+    fn advance(&mut self) {
+        self.pos += 1;
         if self.pos > self.text.len() - 1 {
-            return Token::new(TokenType::EOF, Value::None);
+            self.current_char = None;
+        } else {
+            self.current_char = Some(self.text.as_bytes()[self.pos] as char)
         }
+    }
 
-        let current_char = self.text.as_bytes()[self.pos] as char;
-        if current_char.is_numeric() {
-            self.pos += 1;
-            return Token::new(
-                TokenType::Integer,
-                Value::Number(current_char.to_digit(10).unwrap() as f32),
-            );
+    fn skip_whitespace(&mut self) {
+        while let Some(c) = self.current_char {
+            if c.is_whitespace() {
+                self.advance();
+            } else {
+                break;
+            }
         }
+    }
 
-        if current_char == '+' {
-            self.pos += 1;
-            return Token::new(TokenType::Plus, Value::Char(current_char));
+    fn integer(&mut self) -> f32 {
+        let mut result = String::new();
+        while let Some(n) = self.current_char {
+            if n.is_numeric() {
+                result.push(n);
+                self.advance();
+            } else {
+                break;
+            }
         }
+        result.parse().unwrap()
+    }
 
-        self.error();
-        unreachable!()
+    fn get_next_token(&mut self) -> Token {
+        while let Some(c) = self.current_char {
+            if c.is_whitespace() {
+                self.skip_whitespace();
+                continue;
+            }
+
+            if c.is_numeric() {
+                return Token::new(TokenType::Integer, Value::Number(self.integer()));
+            }
+
+            if c == '+' {
+                self.advance();
+                return Token::new(TokenType::Plus, Value::Char(c));
+            }
+
+            if c == '-' {
+                self.advance();
+                return Token::new(TokenType::Minus, Value::Char(c));
+            }
+
+            if c == '*' {
+                self.advance();
+                return Token::new(TokenType::Times, Value::Char(c));
+            }
+
+            if c == '/' {
+                self.advance();
+                return Token::new(TokenType::Divide, Value::Char(c));
+            }
+
+            self.error();
+        }
+        Token::new(TokenType::EOF, Value::None)
     }
 
     fn eat(&mut self, type_: TokenType) {
@@ -100,13 +150,18 @@ impl Interpreter {
         self.eat(TokenType::Integer);
 
         let op = &self.current_token.as_ref().unwrap().clone();
-        self.eat(TokenType::Plus);
+        self.eat(op.type_.clone());
 
         let right = &self.current_token.as_ref().unwrap().clone();
         self.eat(TokenType::Integer);
 
         match (&left.value, &right.value) {
-            (Value::Number(l), Value::Number(r)) => l + r,
+            (Value::Number(l), Value::Number(r)) => match op.type_ {
+                TokenType::Plus => l + r,
+                TokenType::Minus => l - r,
+                TokenType::Times => l * r,
+                _ => l / r,
+            },
             _ => {
                 self.error();
                 unreachable!()
