@@ -4,8 +4,8 @@ use std::io::{stdin, stdout, Write};
 #[derive(Debug, PartialEq, Clone)]
 enum TokenType {
     Integer,
-    Plus,
-    Minus,
+    Times,
+    Divide,
     EOF,
 }
 
@@ -44,25 +44,23 @@ impl Display for Token {
     }
 }
 
-struct Interpreter {
+struct Lexer {
     text: String,
     pos: usize,
-    current_token: Option<Token>,
     current_char: Option<char>,
 }
 
-impl Interpreter {
+impl Lexer {
     fn new(text: String) -> Self {
-        Interpreter {
+        Lexer {
             text: text.clone(),
             pos: 0,
-            current_token: None,
             current_char: Some(text.as_bytes()[0] as char),
         }
     }
 
     fn error(&self) {
-        panic!("Error parsing input");
+        panic!("Invalid character");
     }
 
     fn advance(&mut self) {
@@ -70,7 +68,7 @@ impl Interpreter {
         if self.pos > self.text.len() - 1 {
             self.current_char = None;
         } else {
-            self.current_char = Some(self.text.as_bytes()[self.pos] as char)
+            self.current_char = Some(self.text.as_bytes()[self.pos] as char);
         }
     }
 
@@ -108,67 +106,74 @@ impl Interpreter {
                 return Token::new(TokenType::Integer, Value::Number(self.integer()));
             }
 
-            if c == '+' {
+            if c == '*' {
                 self.advance();
-                return Token::new(TokenType::Plus, Value::Char(c));
+                return Token::new(TokenType::Times, Value::Char(c));
             }
 
-            if c == '-' {
+            if c == '/' {
                 self.advance();
-                return Token::new(TokenType::Minus, Value::Char(c));
+                return Token::new(TokenType::Divide, Value::Char(c));
             }
 
             self.error();
         }
         Token::new(TokenType::EOF, Value::None)
     }
+}
+
+struct Interpreter {
+    lexer: Lexer,
+    current_token: Option<Token>,
+}
+
+impl Interpreter {
+    fn new(mut lexer: Lexer) -> Self {
+        let current_token = Some(lexer.get_next_token());
+        Interpreter {
+            lexer,
+            current_token,
+        }
+    }
+
+    fn error(&self) {
+        panic!("Invalid syntax");
+    }
 
     fn eat(&mut self, type_: TokenType) {
         if self.current_token.as_ref().unwrap().type_ == type_ {
-            self.current_token = Some(self.get_next_token());
+            self.current_token = Some(self.lexer.get_next_token());
         } else {
             self.error()
         }
     }
 
-    fn term(&mut self) -> Value {
+    fn factor(&mut self) -> f32 {
         let token = self.current_token.clone();
         self.eat(TokenType::Integer);
-        token.unwrap().value
-    }
-
-    fn expr(&mut self) -> f32 {
-        self.current_token = Some(self.get_next_token());
-
-        let mut result = match self.term() {
+        match token.unwrap().value {
             Value::Number(n) => n,
             _ => {
                 self.error();
                 unreachable!()
             }
-        };
-        while let TokenType::Plus | TokenType::Minus = self.current_token.as_ref().unwrap().type_ {
-            let token = self.current_token.as_ref().unwrap().clone();
+        }
+    }
+
+    fn expr(&mut self) -> f32 {
+        let mut result = self.factor();
+
+        while let TokenType::Times | TokenType::Divide = self.current_token.as_ref().unwrap().type_
+        {
+            let token = self.current_token.clone().unwrap();
             match token.type_ {
-                TokenType::Plus => {
-                    self.eat(TokenType::Plus);
-                    result += match self.term() {
-                        Value::Number(n) => n,
-                        _ => {
-                            self.error();
-                            unreachable!()
-                        }
-                    }
+                TokenType::Times => {
+                    self.eat(TokenType::Times);
+                    result *= self.factor();
                 }
-                TokenType::Minus => {
-                    self.eat(TokenType::Minus);
-                    result -= match self.term() {
-                        Value::Number(n) => n,
-                        _ => {
-                            self.error();
-                            unreachable!()
-                        }
-                    }
+                TokenType::Divide => {
+                    self.eat(TokenType::Divide);
+                    result /= self.factor();
                 }
                 _ => unimplemented!(),
             }
@@ -190,7 +195,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             break Ok(());
         }
         if input != "" {
-            let mut interpreter = Interpreter::new(input);
+            let lexer = Lexer::new(input);
+            let mut interpreter = Interpreter::new(lexer);
             let result = interpreter.expr();
             println!("{}", result);
         }
