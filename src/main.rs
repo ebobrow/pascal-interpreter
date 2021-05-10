@@ -8,6 +8,8 @@ enum TokenType {
     Minus,
     Mul,
     Div,
+    RightParen,
+    LeftParen,
     EOF,
 }
 
@@ -108,27 +110,39 @@ impl Lexer {
                 return Token::new(TokenType::Integer, Value::Number(self.integer()));
             }
 
-            if c == '+' {
-                self.advance();
-                return Token::new(TokenType::Plus, Value::Char(c));
-            }
+            match c {
+                '+' => {
+                    self.advance();
+                    return Token::new(TokenType::Plus, Value::Char(c));
+                }
 
-            if c == '-' {
-                self.advance();
-                return Token::new(TokenType::Minus, Value::Char(c));
-            }
+                '-' => {
+                    self.advance();
+                    return Token::new(TokenType::Minus, Value::Char(c));
+                }
 
-            if c == '*' {
-                self.advance();
-                return Token::new(TokenType::Mul, Value::Char(c));
-            }
+                '*' => {
+                    self.advance();
+                    return Token::new(TokenType::Mul, Value::Char(c));
+                }
 
-            if c == '/' {
-                self.advance();
-                return Token::new(TokenType::Div, Value::Char(c));
-            }
+                '/' => {
+                    self.advance();
+                    return Token::new(TokenType::Div, Value::Char(c));
+                }
 
-            self.error();
+                '(' => {
+                    self.advance();
+                    return Token::new(TokenType::LeftParen, Value::Char(c));
+                }
+
+                ')' => {
+                    self.advance();
+                    return Token::new(TokenType::RightParen, Value::Char(c));
+                }
+
+                _ => self.error(),
+            }
         }
         Token::new(TokenType::EOF, Value::None)
     }
@@ -162,13 +176,24 @@ impl Interpreter {
 
     fn factor(&mut self) -> f32 {
         let token = self.current_token.clone();
-        self.eat(TokenType::Integer);
-        match token.unwrap().value {
-            Value::Number(n) => n,
-            _ => {
-                self.error();
-                unreachable!()
-            }
+        let type_ = &token.as_ref().unwrap().type_;
+        if let TokenType::Integer = type_ {
+            self.eat(TokenType::Integer);
+            return match token.unwrap().value {
+                Value::Number(n) => n,
+                _ => {
+                    self.error();
+                    unreachable!()
+                }
+            };
+        } else if let TokenType::LeftParen = type_ {
+            self.eat(TokenType::LeftParen);
+            let result = self.expr();
+            self.eat(TokenType::RightParen);
+            return result;
+        } else {
+            self.error();
+            unreachable!()
         }
     }
 
@@ -194,7 +219,7 @@ impl Interpreter {
     }
 
     fn expr(&mut self) -> f32 {
-        let mut result = self.factor();
+        let mut result = self.term();
 
         while let TokenType::Plus | TokenType::Minus = self.current_token.as_ref().unwrap().type_ {
             let token = self.current_token.clone().unwrap();
