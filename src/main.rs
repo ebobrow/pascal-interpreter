@@ -4,8 +4,10 @@ use std::io::{stdin, stdout, Write};
 #[derive(Debug, PartialEq, Clone)]
 enum TokenType {
     Integer,
-    Times,
-    Divide,
+    Plus,
+    Minus,
+    Mul,
+    Div,
     EOF,
 }
 
@@ -106,14 +108,24 @@ impl Lexer {
                 return Token::new(TokenType::Integer, Value::Number(self.integer()));
             }
 
+            if c == '+' {
+                self.advance();
+                return Token::new(TokenType::Plus, Value::Char(c));
+            }
+
+            if c == '-' {
+                self.advance();
+                return Token::new(TokenType::Minus, Value::Char(c));
+            }
+
             if c == '*' {
                 self.advance();
-                return Token::new(TokenType::Times, Value::Char(c));
+                return Token::new(TokenType::Mul, Value::Char(c));
             }
 
             if c == '/' {
                 self.advance();
-                return Token::new(TokenType::Divide, Value::Char(c));
+                return Token::new(TokenType::Div, Value::Char(c));
             }
 
             self.error();
@@ -160,20 +172,41 @@ impl Interpreter {
         }
     }
 
+    fn term(&mut self) -> f32 {
+        let mut result = self.factor();
+
+        while let TokenType::Mul | TokenType::Div = self.current_token.as_ref().unwrap().type_ {
+            let token = self.current_token.clone().unwrap();
+
+            match token.type_ {
+                TokenType::Mul => {
+                    self.eat(TokenType::Mul);
+                    result *= self.factor();
+                }
+                TokenType::Div => {
+                    self.eat(TokenType::Div);
+                    result /= self.factor();
+                }
+                _ => unimplemented!(),
+            }
+        }
+        result
+    }
+
     fn expr(&mut self) -> f32 {
         let mut result = self.factor();
 
-        while let TokenType::Times | TokenType::Divide = self.current_token.as_ref().unwrap().type_
-        {
+        while let TokenType::Plus | TokenType::Minus = self.current_token.as_ref().unwrap().type_ {
             let token = self.current_token.clone().unwrap();
+
             match token.type_ {
-                TokenType::Times => {
-                    self.eat(TokenType::Times);
-                    result *= self.factor();
+                TokenType::Plus => {
+                    self.eat(TokenType::Plus);
+                    result += self.term();
                 }
-                TokenType::Divide => {
-                    self.eat(TokenType::Divide);
-                    result /= self.factor();
+                TokenType::Minus => {
+                    self.eat(TokenType::Minus);
+                    result -= self.term();
                 }
                 _ => unimplemented!(),
             }
