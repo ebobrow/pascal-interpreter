@@ -6,8 +6,6 @@ enum TokenType {
     Integer,
     Plus,
     Minus,
-    Times,
-    Divide,
     EOF,
 }
 
@@ -120,16 +118,6 @@ impl Interpreter {
                 return Token::new(TokenType::Minus, Value::Char(c));
             }
 
-            if c == '*' {
-                self.advance();
-                return Token::new(TokenType::Times, Value::Char(c));
-            }
-
-            if c == '/' {
-                self.advance();
-                return Token::new(TokenType::Divide, Value::Char(c));
-            }
-
             self.error();
         }
         Token::new(TokenType::EOF, Value::None)
@@ -143,30 +131,49 @@ impl Interpreter {
         }
     }
 
+    fn term(&mut self) -> Value {
+        let token = self.current_token.clone();
+        self.eat(TokenType::Integer);
+        token.unwrap().value
+    }
+
     fn expr(&mut self) -> f32 {
         self.current_token = Some(self.get_next_token());
 
-        let left = &self.current_token.as_ref().unwrap().clone();
-        self.eat(TokenType::Integer);
-
-        let op = &self.current_token.as_ref().unwrap().clone();
-        self.eat(op.type_.clone());
-
-        let right = &self.current_token.as_ref().unwrap().clone();
-        self.eat(TokenType::Integer);
-
-        match (&left.value, &right.value) {
-            (Value::Number(l), Value::Number(r)) => match op.type_ {
-                TokenType::Plus => l + r,
-                TokenType::Minus => l - r,
-                TokenType::Times => l * r,
-                _ => l / r,
-            },
+        let mut result = match self.term() {
+            Value::Number(n) => n,
             _ => {
                 self.error();
                 unreachable!()
             }
+        };
+        while let TokenType::Plus | TokenType::Minus = self.current_token.as_ref().unwrap().type_ {
+            let token = self.current_token.as_ref().unwrap().clone();
+            match token.type_ {
+                TokenType::Plus => {
+                    self.eat(TokenType::Plus);
+                    result += match self.term() {
+                        Value::Number(n) => n,
+                        _ => {
+                            self.error();
+                            unreachable!()
+                        }
+                    }
+                }
+                TokenType::Minus => {
+                    self.eat(TokenType::Minus);
+                    result -= match self.term() {
+                        Value::Number(n) => n,
+                        _ => {
+                            self.error();
+                            unreachable!()
+                        }
+                    }
+                }
+                _ => unimplemented!(),
+            }
         }
+        result
     }
 }
 
