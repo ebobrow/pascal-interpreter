@@ -3,7 +3,8 @@ use crate::tokens::{Token, TokenType, Value};
 
 enum Node {
     BinOp(Box<BinOp>),
-    Num(Box<Num>),
+    Num(Num),
+    UnaryOp(Box<UnaryOp>),
 }
 
 struct BinOp {
@@ -38,6 +39,22 @@ impl Num {
     }
 }
 
+struct UnaryOp {
+    token: Token,
+    op: Token,
+    expr: Node,
+}
+
+impl UnaryOp {
+    fn new(op: Token, expr: Node) -> Self {
+        UnaryOp {
+            token: op.clone(),
+            op,
+            expr,
+        }
+    }
+}
+
 pub struct Parser {
     lexer: Lexer,
     current_token: Option<Token>,
@@ -66,17 +83,26 @@ impl Parser {
 
     fn factor(&mut self) -> Node {
         let token = self.current_token.clone().unwrap();
-        let type_ = &token.type_;
-        if let TokenType::Integer = type_ {
-            self.eat(TokenType::Integer);
-            return Node::Num(Box::new(Num::new(token)));
-        } else if let TokenType::LeftParen = type_ {
-            self.eat(TokenType::LeftParen);
-            let node = self.expr();
-            self.eat(TokenType::RightParen);
-            return node;
-        } else {
-            unreachable!()
+        match &token.type_ {
+            TokenType::Plus => {
+                self.eat(TokenType::Plus);
+                Node::UnaryOp(Box::new(UnaryOp::new(token, self.factor())))
+            }
+            TokenType::Minus => {
+                self.eat(TokenType::Minus);
+                Node::UnaryOp(Box::new(UnaryOp::new(token, self.factor())))
+            }
+            TokenType::Integer => {
+                self.eat(TokenType::Integer);
+                Node::Num(Num::new(token))
+            }
+            TokenType::LeftParen => {
+                self.eat(TokenType::LeftParen);
+                let node = self.expr();
+                self.eat(TokenType::RightParen);
+                node
+            }
+            _ => unreachable!(),
         }
     }
 
@@ -118,6 +144,7 @@ impl Parser {
 trait NodeVisitor {
     fn visit_num(&self, num: &Num) -> f32;
     fn visit_bin_op(&self, bin_op: &BinOp) -> f32;
+    fn visit_unary_op(&self, unary_op: &UnaryOp) -> f32;
 }
 
 pub struct Interpreter {
@@ -131,8 +158,13 @@ impl Interpreter {
 
     pub fn interpret(&mut self) -> f32 {
         let tree = self.parser.parse();
-        match &tree {
-            Node::BinOp(b) => self.visit_bin_op(b),
+        self.visit(&tree)
+    }
+
+    fn visit(&self, node: &Node) -> f32 {
+        match node {
+            Node::BinOp(n) => self.visit_bin_op(n),
+            Node::UnaryOp(n) => self.visit_unary_op(n),
             Node::Num(n) => self.visit_num(n),
         }
     }
@@ -147,14 +179,8 @@ impl NodeVisitor for Interpreter {
     }
 
     fn visit_bin_op(&self, bin_op: &BinOp) -> f32 {
-        let left = match &bin_op.left {
-            Node::BinOp(b) => self.visit_bin_op(b),
-            Node::Num(n) => self.visit_num(n),
-        };
-        let right = match &bin_op.right {
-            Node::BinOp(b) => self.visit_bin_op(b),
-            Node::Num(n) => self.visit_num(n),
-        };
+        let left = self.visit(&bin_op.left);
+        let right = self.visit(&bin_op.right);
 
         match bin_op.op.type_ {
             TokenType::Plus => left + right,
@@ -163,5 +189,71 @@ impl NodeVisitor for Interpreter {
             TokenType::Div => left / right,
             _ => unimplemented!(),
         }
+    }
+
+    fn visit_unary_op(&self, unary_op: &UnaryOp) -> f32 {
+        let expr = self.visit(&unary_op.expr);
+        match unary_op.op.type_ {
+            TokenType::Plus => (0 as f32) + expr,
+            TokenType::Minus => (0 as f32) - expr,
+            _ => unimplemented!(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lexer::Lexer;
+    use crate::tokens::{Token, TokenType, Value};
+
+    #[test]
+    fn binary_ops() {
+        let mul = Token::new(TokenType::Mul, Value::Char('*'));
+        let plus = Token::new(TokenType::Plus, Value::Char('+'));
+        let two = Token::new(TokenType::Integer, Value::Number(2 as f32));
+        let seven = Token::new(TokenType::Integer, Value::Number(7 as f32));
+        let three = Token::new(TokenType::Integer, Value::Number(3 as f32));
+
+        let add_node = Node::BinOp(Box::new(BinOp::new(
+            Node::BinOp(Box::new(BinOp::new(
+                Node::Num(Num::new(two)),
+                mul,
+                Node::Num(Num::new(seven)),
+            ))),
+            plus,
+            Node::Num(Num::new(three)),
+        )));
+
+        // The string passed to lexer doesn't matter but it has to be valid syntax
+        let lexer = Lexer::new("2 * 7 + 3".to_string());
+        let parser = Parser::new(lexer);
+        let inperpreter = Interpreter::new(parser);
+        let res = inperpreter.visit(&add_node);
+        assert_eq!(res, 17 as f32);
+    }
+
+    #[test]
+    fn unary_op() {
+        let five = Token::new(TokenType::Integer, Value::Number(5 as f32));
+        let two = Token::new(TokenType::Integer, Value::Number(2 as f32));
+        let minus = Token::new(TokenType::Minus, Value::Char('-'));
+
+        // 5 - -2
+        let expr_node = Node::BinOp(Box::new(BinOp::new(
+            Node::Num(Num::new(five)),
+            minus.clone(),
+            Node::UnaryOp(Box::new(UnaryOp::new(
+                minus.clone(),
+                Node::UnaryOp(Box::new(UnaryOp::new(minus, Node::Num(Num::new(two))))),
+            ))),
+        )));
+
+        // The string passed to lexer doesn't matter but it has to be valid syntax
+        let lexer = Lexer::new("5 + -2".to_string());
+        let parser = Parser::new(lexer);
+        let inperpreter = Interpreter::new(parser);
+        let res = inperpreter.visit(&expr_node);
+        assert_eq!(res, 3 as f32);
     }
 }
