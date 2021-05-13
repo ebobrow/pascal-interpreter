@@ -1,8 +1,8 @@
-mod interpreter;
+mod ast;
 mod lexer;
 mod tokens;
 
-use crate::interpreter::Interpreter;
+use crate::ast::{Interpreter, Parser};
 use crate::lexer::Lexer;
 use std::io::{stdin, stdout, Write};
 
@@ -18,10 +18,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if input == "exit" {
             break Ok(());
         }
-        if input != "" {
+        if !input.is_empty() {
             let lexer = Lexer::new(input);
-            let mut interpreter = Interpreter::new(lexer);
-            let result = interpreter.expr();
+            let parser = Parser::new(lexer);
+            let mut interpreter = Interpreter::new(parser);
+            let result = interpreter.interpret();
             println!("{}", result);
         }
     }
