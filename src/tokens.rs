@@ -9,13 +9,20 @@ pub enum TokenType {
     Div,
     RightParen,
     LeftParen,
+    Begin,
+    End,
+    ID,
+    Assign,
+    Semi,
+    Dot,
     EOF,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Value {
     Number(f32),
     Char(char),
+    String(String),
     None,
 }
 
@@ -24,12 +31,13 @@ impl Display for Value {
         match self {
             Value::Number(n) => write!(f, "{}", n),
             Value::Char(c) => write!(f, "{}", c),
+            Value::String(s) => write!(f, "{}", s),
             Value::None => write!(f, ""),
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Token {
     pub type_: TokenType,
     pub value: Value,

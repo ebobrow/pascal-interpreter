@@ -1,4 +1,11 @@
 use crate::tokens::{Token, TokenType, Value};
+use phf::phf_map;
+
+const RESERVED_KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
+    "BEGIN" => TokenType::Begin,
+    "END" => TokenType::End,
+    "DIV" => TokenType::Div
+};
 
 pub struct Lexer {
     text: String,
@@ -29,12 +36,8 @@ impl Lexer {
     }
 
     fn skip_whitespace(&mut self) {
-        while let Some(c) = self.current_char {
-            if c.is_whitespace() {
-                self.advance();
-            } else {
-                break;
-            }
+        while self.current_char.filter(|c| c.is_whitespace()).is_some() {
+            self.advance();
         }
     }
 
@@ -78,11 +81,10 @@ impl Lexer {
                     return Token::new(TokenType::Mul, Value::Char(c));
                 }
 
-                '/' => {
-                    self.advance();
-                    return Token::new(TokenType::Div, Value::Char(c));
-                }
-
+                // '/' => {
+                //     self.advance();
+                //     return Token::new(TokenType::Div, Value::Char(c));
+                // }
                 '(' => {
                     self.advance();
                     return Token::new(TokenType::LeftParen, Value::Char(c));
@@ -93,9 +95,57 @@ impl Lexer {
                     return Token::new(TokenType::RightParen, Value::Char(c));
                 }
 
-                _ => self.error(),
+                ':' => {
+                    if let Some('=') = self.peek() {
+                        self.advance();
+                        self.advance();
+                        return Token::new(TokenType::Assign, Value::String(String::from(":=")));
+                    }
+                }
+
+                ';' => {
+                    self.advance();
+                    return Token::new(TokenType::Semi, Value::Char(c));
+                }
+
+                '.' => {
+                    self.advance();
+                    return Token::new(TokenType::Dot, Value::Char(c));
+                }
+
+                c => {
+                    if c.is_alphabetic() || c == '_' {
+                        return self.id();
+                    } else {
+                        self.error()
+                    }
+                }
             }
         }
         Token::new(TokenType::EOF, Value::None)
+    }
+
+    fn peek(&self) -> Option<char> {
+        if self.pos > self.text.len() {
+            None
+        } else {
+            Some(self.text.as_bytes()[self.pos + 1] as char)
+        }
+    }
+
+    fn id(&mut self) -> Token {
+        let mut result = String::new();
+        while let Some(c) = self
+            .current_char
+            .filter(|c| c.is_alphanumeric() || c == &'_')
+        {
+            result.push(c);
+            self.advance();
+        }
+
+        RESERVED_KEYWORDS.get(&result[..]).map_or(
+            Token::new(TokenType::ID, Value::String(result.clone())),
+            |t| Token::new(t.clone(), Value::String(result)),
+        )
     }
 }
