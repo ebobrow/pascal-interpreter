@@ -3,24 +3,37 @@ use std::fmt::{self, Display, Formatter};
 #[derive(Debug, PartialEq, Clone)]
 pub enum TokenType {
     Integer,
+    Real,
+    IntegerConst,
+    RealConst,
+
     Plus,
     Minus,
     Mul,
-    Div,
+    IntegerDiv,
+    FloatDiv,
     RightParen,
     LeftParen,
+
+    Program,
+    Var,
     Begin,
     End,
+
     ID,
     Assign,
     Semi,
     Dot,
+    Colon,
+    Comma,
+
     EOF,
 }
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Value {
-    Number(f32),
+    Float(f32),
+    Integer(i32),
     Char(char),
     String(String),
     None,
@@ -29,9 +42,10 @@ pub enum Value {
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Value::Number(n) => write!(f, "{}", n),
-            Value::Char(c) => write!(f, "{}", c),
-            Value::String(s) => write!(f, "{}", s),
+            Value::Float(v) => write!(f, "{}", v),
+            Value::Integer(v) => write!(f, "{}", v),
+            Value::Char(v) => write!(f, "{}", v),
+            Value::String(v) => write!(f, "{}", v),
             Value::None => write!(f, ""),
         }
     }

@@ -4,7 +4,11 @@ use phf::phf_map;
 const RESERVED_KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
     "BEGIN" => TokenType::Begin,
     "END" => TokenType::End,
-    "DIV" => TokenType::Div
+    "DIV" => TokenType::IntegerDiv,
+    "PROGRAM" => TokenType::Program,
+    "INTEGER" => TokenType::Integer,
+    "REAL" => TokenType::Real,
+    "VAR" => TokenType::Var
 };
 
 pub struct Lexer {
@@ -41,17 +45,34 @@ impl Lexer {
         }
     }
 
-    fn integer(&mut self) -> f32 {
+    fn skip_comment(&mut self) {
+        while self.current_char.filter(|c| c != &'}').is_some() {
+            self.advance();
+        }
+    }
+
+    fn number(&mut self) -> Token {
         let mut result = String::new();
-        while let Some(n) = self.current_char {
-            if n.is_numeric() {
+        while let Some(n) = self.current_char.filter(|c| c.is_numeric()) {
+            result.push(n);
+            self.advance();
+        }
+
+        if let Some('.') = self.current_char {
+            result.push('.');
+            self.advance();
+
+            while let Some(n) = self.current_char.filter(|c| c.is_numeric()) {
                 result.push(n);
                 self.advance();
-            } else {
-                break;
             }
+            Token::new(TokenType::RealConst, Value::Float(result.parse().unwrap()))
+        } else {
+            Token::new(
+                TokenType::IntegerConst,
+                Value::Integer(result.parse().unwrap()),
+            )
         }
-        result.parse().unwrap()
     }
 
     pub fn get_next_token(&mut self) -> Token {
@@ -62,7 +83,7 @@ impl Lexer {
             }
 
             if c.is_numeric() {
-                return Token::new(TokenType::Integer, Value::Number(self.integer()));
+                return self.number();
             }
 
             match c {
@@ -81,10 +102,11 @@ impl Lexer {
                     return Token::new(TokenType::Mul, Value::Char(c));
                 }
 
-                // '/' => {
-                //     self.advance();
-                //     return Token::new(TokenType::Div, Value::Char(c));
-                // }
+                '/' => {
+                    self.advance();
+                    return Token::new(TokenType::FloatDiv, Value::Char(c));
+                }
+
                 '(' => {
                     self.advance();
                     return Token::new(TokenType::LeftParen, Value::Char(c));
@@ -100,6 +122,9 @@ impl Lexer {
                         self.advance();
                         self.advance();
                         return Token::new(TokenType::Assign, Value::String(String::from(":=")));
+                    } else {
+                        self.advance();
+                        return Token::new(TokenType::Colon, Value::Char(c));
                     }
                 }
 
@@ -113,9 +138,22 @@ impl Lexer {
                     return Token::new(TokenType::Dot, Value::Char(c));
                 }
 
+                '{' => {
+                    self.advance();
+                    self.skip_comment();
+                    continue;
+                }
+
+                ',' => {
+                    self.advance();
+                    return Token::new(TokenType::Comma, Value::Char(c));
+                }
+
                 c => {
                     if c.is_alphabetic() || c == '_' {
                         return self.id();
+                    } else if c.is_numeric() {
+                        return self.number();
                     } else {
                         self.error()
                     }
