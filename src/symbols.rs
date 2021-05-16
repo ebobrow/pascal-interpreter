@@ -69,11 +69,13 @@ impl NodeVisitor for SymbolTableBuilder {
     }
 
     fn visit_var_decl(&mut self, var_decl: &VarDecl) {
-        let type_name = var_decl.type_node.value.expect_string();
-        let type_symbol = self.symtab.lookup(type_name).unwrap();
+        let type_symbol = self
+            .symtab
+            .lookup(var_decl.type_node.value.expect_string())
+            .unwrap();
         let var_name = var_decl.var_node.value.expect_string();
         let var_symbol = VarSymbol::new(var_name, type_symbol.clone());
-        self.symtab.define(Symbol::Var(Box::new(var_symbol)));
+        self.symtab.insert(Symbol::Var(Box::new(var_symbol)));
     }
 
     fn visit_type(&self, _: &Type) {}
@@ -82,12 +84,12 @@ impl NodeVisitor for SymbolTableBuilder {
 }
 
 #[derive(Debug, PartialEq)]
-struct SymbolTable {
+pub struct SymbolTable {
     symbols: HashMap<String, Symbol>,
 }
 
 impl SymbolTable {
-    fn new() -> Self {
+    pub fn new() -> Self {
         let mut symtab = SymbolTable {
             symbols: HashMap::new(),
         };
@@ -96,25 +98,25 @@ impl SymbolTable {
     }
 
     fn init_builtins(&mut self) {
-        self.define(Symbol::Builtin(BuiltinTypeSymbol::new(String::from(
+        self.insert(Symbol::Builtin(BuiltinTypeSymbol::new(String::from(
             "INTEGER",
         ))));
-        self.define(Symbol::Builtin(BuiltinTypeSymbol::new(String::from(
+        self.insert(Symbol::Builtin(BuiltinTypeSymbol::new(String::from(
             "REAL",
         ))));
     }
 
-    fn define(&mut self, symbol: Symbol) {
+    pub fn insert(&mut self, symbol: Symbol) {
         self.symbols.insert(symbol.name(), symbol);
     }
 
-    fn lookup(&self, name: String) -> Option<&Symbol> {
+    pub fn lookup(&self, name: String) -> Option<&Symbol> {
         self.symbols.get(&name)
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum Symbol {
+pub enum Symbol {
     Builtin(BuiltinTypeSymbol),
     Var(Box<VarSymbol>),
 }
@@ -129,24 +131,24 @@ impl Symbol {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct BuiltinTypeSymbol {
+pub struct BuiltinTypeSymbol {
     name: String,
 }
 
 impl BuiltinTypeSymbol {
-    fn new(name: String) -> Self {
+    pub fn new(name: String) -> Self {
         BuiltinTypeSymbol { name }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct VarSymbol {
+pub struct VarSymbol {
     name: String,
     type_: Symbol,
 }
 
 impl VarSymbol {
-    fn new(name: String, type_: Symbol) -> Self {
+    pub fn new(name: String, type_: Symbol) -> Self {
         VarSymbol { name, type_ }
     }
 }
@@ -174,11 +176,11 @@ END.";
         symtab_builder.visit(&tree);
 
         let mut expected = SymbolTable::new();
-        expected.define(Symbol::Var(Box::new(VarSymbol::new(
+        expected.insert(Symbol::Var(Box::new(VarSymbol::new(
             "x".to_string(),
             Symbol::Builtin(BuiltinTypeSymbol::new("INTEGER".to_string())),
         ))));
-        expected.define(Symbol::Var(Box::new(VarSymbol::new(
+        expected.insert(Symbol::Var(Box::new(VarSymbol::new(
             "y".to_string(),
             Symbol::Builtin(BuiltinTypeSymbol::new("REAL".to_string())),
         ))));

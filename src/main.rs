@@ -2,12 +2,14 @@ mod ast;
 mod interpreter;
 mod lexer;
 mod parser;
+mod semantic_analyzer;
 mod symbols;
 mod tokens;
 
 use crate::interpreter::{Interpreter, NodeVisitor};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
+use crate::semantic_analyzer::SemanticAnalyzer;
 use crate::symbols::SymbolTableBuilder;
 use std::{env, fs};
 
@@ -21,6 +23,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut symtab_builder = SymbolTableBuilder::new();
     symtab_builder.visit(&tree);
     symtab_builder.print_contents();
+
+    let mut semantic_analyzer = SemanticAnalyzer::new();
+    semantic_analyzer.visit(&tree);
+    semantic_analyzer.print_symbols();
 
     let lexer = Lexer::new(source);
     let parser = Parser::new(lexer);
