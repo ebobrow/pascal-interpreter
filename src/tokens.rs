@@ -2,11 +2,13 @@ use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TokenType {
+    // Types
     Integer,
     Real,
     IntegerConst,
     RealConst,
 
+    // Operators
     Plus,
     Minus,
     Mul,
@@ -15,10 +17,12 @@ pub enum TokenType {
     RightParen,
     LeftParen,
 
+    // Reserved keywords
     Program,
     Var,
     Begin,
     End,
+    Procedure,
 
     ID,
     Assign,

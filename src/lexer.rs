@@ -8,7 +8,8 @@ const RESERVED_KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
     "PROGRAM" => TokenType::Program,
     "INTEGER" => TokenType::Integer,
     "REAL" => TokenType::Real,
-    "VAR" => TokenType::Var
+    "VAR" => TokenType::Var,
+    "PROCEDURE" => TokenType::Procedure
 };
 
 pub struct Lexer {

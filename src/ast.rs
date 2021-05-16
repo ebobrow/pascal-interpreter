@@ -10,9 +10,10 @@ pub enum Node {
     Assign(Box<Assign>),
     Var(Var),
     Program(Box<Program>),
-    Block(Box<Block>),
+    // Block(Box<Block>),
     VarDecl(VarDecl),
-    Type(Type),
+    // Type(Type),
+    ProcedureDecl(Box<ProcedureDecl>),
     NoOp,
 }
 
@@ -30,12 +31,12 @@ impl Program {
 
 #[derive(Debug)]
 pub struct Block {
-    pub declarations: Vec<VarDecl>,
+    pub declarations: Vec<Node>,
     pub compound_statement: Node,
 }
 
 impl Block {
-    pub fn new(declarations: Vec<VarDecl>, compound_statement: Node) -> Self {
+    pub fn new(declarations: Vec<Node>, compound_statement: Node) -> Self {
         Block {
             declarations,
             compound_statement,
@@ -172,6 +173,21 @@ impl UnaryOp {
             token: op.clone(),
             op,
             expr,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ProcedureDecl {
+    proc_name: String,
+    block_node: Block,
+}
+
+impl ProcedureDecl {
+    pub fn new(proc_name: String, block_node: Block) -> Self {
+        ProcedureDecl {
+            proc_name,
+            block_node,
         }
     }
 }

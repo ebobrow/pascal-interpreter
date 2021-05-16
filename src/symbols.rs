@@ -1,4 +1,6 @@
-use crate::ast::{Assign, BinOp, Block, Compound, Num, Program, Type, UnaryOp, Var, VarDecl};
+use crate::ast::{
+    Assign, BinOp, Block, Compound, Num, ProcedureDecl, Program, Type, UnaryOp, Var, VarDecl,
+};
 use crate::interpreter::NodeVisitor;
 use crate::tokens::Value;
 use std::collections::HashMap;
@@ -61,7 +63,7 @@ impl NodeVisitor for SymbolTableBuilder {
 
     fn visit_block(&mut self, block: &Block) {
         for declaration in &block.declarations {
-            self.visit_var_decl(declaration);
+            self.visit(declaration);
         }
         self.visit(&block.compound_statement);
     }
@@ -75,6 +77,8 @@ impl NodeVisitor for SymbolTableBuilder {
     }
 
     fn visit_type(&self, _: &Type) {}
+
+    fn visit_procedure_decl(&self, _: &ProcedureDecl) {}
 }
 
 #[derive(Debug, PartialEq)]

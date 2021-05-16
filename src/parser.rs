@@ -1,4 +1,6 @@
-use crate::ast::{Assign, BinOp, Block, Compound, Node, Num, Program, Type, UnaryOp, Var, VarDecl};
+use crate::ast::{
+    Assign, BinOp, Block, Compound, Node, Num, ProcedureDecl, Program, Type, UnaryOp, Var, VarDecl,
+};
 use crate::lexer::Lexer;
 use crate::tokens::{Token, TokenType};
 
@@ -154,7 +156,7 @@ impl Parser {
         Block::new(declaration_nodes, compound_statement_node)
     }
 
-    fn declarations(&mut self) -> Vec<VarDecl> {
+    fn declarations(&mut self) -> Vec<Node> {
         let mut declarations = Vec::new();
         if let TokenType::Var = self.current_token.as_ref().unwrap().type_ {
             self.eat(TokenType::Var);
@@ -163,10 +165,21 @@ impl Parser {
                 self.eat(TokenType::Semi);
             }
         }
+
+        while let TokenType::Procedure = self.current_token.as_ref().unwrap().type_ {
+            self.eat(TokenType::Procedure);
+            let proc_name = self.current_token.clone().unwrap().value;
+            self.eat(TokenType::ID);
+            self.eat(TokenType::Semi);
+            let block_node = self.block();
+            let proc_decl = ProcedureDecl::new(proc_name.to_string(), block_node);
+            declarations.push(Node::ProcedureDecl(Box::new(proc_decl)));
+            self.eat(TokenType::Semi);
+        }
         declarations
     }
 
-    fn variable_declaration(&mut self) -> Vec<VarDecl> {
+    fn variable_declaration(&mut self) -> Vec<Node> {
         let mut var_nodes = vec![Var::new(self.current_token.clone().unwrap())];
         self.eat(TokenType::ID);
 
@@ -181,7 +194,7 @@ impl Parser {
         let type_node = self.type_spec();
         let mut var_declarations = Vec::new();
         for node in var_nodes {
-            var_declarations.push(VarDecl::new(node, type_node.clone()));
+            var_declarations.push(Node::VarDecl(VarDecl::new(node, type_node.clone())));
         }
         var_declarations
     }

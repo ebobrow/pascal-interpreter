@@ -1,4 +1,6 @@
-use crate::ast::{Assign, BinOp, Block, Compound, Node, Num, Program, Type, UnaryOp, Var, VarDecl};
+use crate::ast::{
+    Assign, BinOp, Block, Compound, Node, Num, ProcedureDecl, Program, Type, UnaryOp, Var, VarDecl,
+};
 use crate::parser::Parser;
 use crate::tokens::{TokenType, Value};
 use std::collections::HashMap;
@@ -14,6 +16,7 @@ pub trait NodeVisitor {
     fn visit_block(&mut self, block: &Block);
     fn visit_var_decl(&mut self, var_decl: &VarDecl);
     fn visit_type(&self, type_: &Type);
+    fn visit_procedure_decl(&self, procedure_decl: &ProcedureDecl);
 
     fn visit(&mut self, node: &Node) -> Value {
         match node {
@@ -31,18 +34,21 @@ pub trait NodeVisitor {
             }
             Node::Var(n) => self.visit_var(n),
             Node::Program(n) => self.visit_program(n),
-            Node::Block(n) => {
-                self.visit_block(n);
-                Value::None
-            }
             Node::VarDecl(n) => {
                 self.visit_var_decl(n);
                 Value::None
             }
-            Node::Type(n) => {
-                self.visit_type(n);
+            Node::ProcedureDecl(n) => {
+                self.visit_procedure_decl(n);
                 Value::None
-            }
+            } // Node::Block(n) => {
+              //     self.visit_block(n);
+              //     Value::None
+              // }
+              // Node::Type(n) => {
+              //     self.visit_type(n);
+              //     Value::None
+              // }
         }
     }
 }
@@ -152,7 +158,7 @@ impl NodeVisitor for Interpreter {
 
     fn visit_block(&mut self, block: &Block) {
         for declaration in &block.declarations {
-            self.visit_var_decl(declaration);
+            self.visit(declaration);
         }
         self.visit(&block.compound_statement);
     }
@@ -160,6 +166,8 @@ impl NodeVisitor for Interpreter {
     fn visit_var_decl(&mut self, _: &VarDecl) {}
 
     fn visit_type(&self, _: &Type) {}
+
+    fn visit_procedure_decl(&self, _: &ProcedureDecl) {}
 }
 
 #[cfg(test)]
