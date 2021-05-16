@@ -39,6 +39,15 @@ pub enum Value {
     None,
 }
 
+impl Value {
+    pub fn expect_string(&self) -> String {
+        match self {
+            Value::String(s) => s.to_string(),
+            _ => panic!("Expected string"),
+        }
+    }
+}
+
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
@@ -51,7 +60,7 @@ impl Display for Value {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Token {
     pub type_: TokenType,
     pub value: Value,

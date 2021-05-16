@@ -49,6 +49,7 @@ impl Lexer {
         while self.current_char.filter(|c| c != &'}').is_some() {
             self.advance();
         }
+        self.advance();
     }
 
     fn number(&mut self) -> Token {
