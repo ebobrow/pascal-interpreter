@@ -1,22 +1,20 @@
-use crate::ast::{
-    Assign, BinOp, Block, Compound, Node, Num, ProcedureDecl, Program, Type, UnaryOp, Var, VarDecl,
-};
+use crate::ast::*;
 use crate::parser::Parser;
 use crate::tokens::{TokenType, Value};
 use std::collections::HashMap;
 
 pub trait NodeVisitor {
-    fn visit_num(&self, num: &Num) -> Value;
+    fn visit_num(&mut self, num: &Num) -> Value;
     fn visit_bin_op(&mut self, bin_op: &BinOp) -> Value;
     fn visit_unary_op(&mut self, unary_op: &UnaryOp) -> Value;
     fn visit_compound(&mut self, compound: &Compound);
     fn visit_assign(&mut self, assign: &Assign);
-    fn visit_var(&self, var: &Var) -> Value;
+    fn visit_var(&mut self, var: &Var) -> Value;
     fn visit_program(&mut self, program: &Program) -> Value;
     fn visit_block(&mut self, block: &Block);
     fn visit_var_decl(&mut self, var_decl: &VarDecl);
-    fn visit_type(&self, type_: &Type);
-    fn visit_procedure_decl(&self, procedure_decl: &ProcedureDecl);
+    fn visit_type(&mut self, type_: &Type);
+    fn visit_procedure_decl(&mut self, procedure_decl: &ProcedureDecl);
 
     fn visit(&mut self, node: &Node) -> Value {
         match node {
@@ -77,7 +75,7 @@ impl Interpreter {
 }
 
 impl NodeVisitor for Interpreter {
-    fn visit_num(&self, num: &Num) -> Value {
+    fn visit_num(&mut self, num: &Num) -> Value {
         num.value.clone()
     }
 
@@ -143,7 +141,7 @@ impl NodeVisitor for Interpreter {
         self.global_scope.insert(var_name.to_lowercase(), value);
     }
 
-    fn visit_var(&self, var: &Var) -> Value {
+    fn visit_var(&mut self, var: &Var) -> Value {
         let var_name = var.value.expect_string();
         self.global_scope
             .get(&var_name.to_lowercase())
@@ -165,9 +163,9 @@ impl NodeVisitor for Interpreter {
 
     fn visit_var_decl(&mut self, _: &VarDecl) {}
 
-    fn visit_type(&self, _: &Type) {}
+    fn visit_type(&mut self, _: &Type) {}
 
-    fn visit_procedure_decl(&self, _: &ProcedureDecl) {}
+    fn visit_procedure_decl(&mut self, _: &ProcedureDecl) {}
 }
 
 #[cfg(test)]

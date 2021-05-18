@@ -1,6 +1,4 @@
-use crate::ast::{
-    Assign, BinOp, Block, Compound, Node, Num, ProcedureDecl, Program, Type, UnaryOp, Var, VarDecl,
-};
+use crate::ast::*;
 use crate::lexer::Lexer;
 use crate::tokens::{Token, TokenType};
 
@@ -158,23 +156,37 @@ impl Parser {
 
     fn declarations(&mut self) -> Vec<Node> {
         let mut declarations = Vec::new();
-        if let TokenType::Var = self.current_token.as_ref().unwrap().type_ {
-            self.eat(TokenType::Var);
-            while let TokenType::ID = self.current_token.as_ref().unwrap().type_ {
-                declarations.append(&mut self.variable_declaration());
-                self.eat(TokenType::Semi);
-            }
-        }
+        loop {
+            if let TokenType::Var = self.current_token.as_ref().unwrap().type_ {
+                self.eat(TokenType::Var);
+                while let TokenType::ID = self.current_token.as_ref().unwrap().type_ {
+                    declarations.append(&mut self.variable_declaration());
+                    self.eat(TokenType::Semi);
+                }
+            } else if let TokenType::Procedure = self.current_token.as_ref().unwrap().type_ {
+                self.eat(TokenType::Procedure);
+                let proc_name = self.current_token.as_ref().unwrap().value.clone();
+                self.eat(TokenType::ID);
+                let mut params = Vec::new();
 
-        while let TokenType::Procedure = self.current_token.as_ref().unwrap().type_ {
-            self.eat(TokenType::Procedure);
-            let proc_name = self.current_token.clone().unwrap().value;
-            self.eat(TokenType::ID);
-            self.eat(TokenType::Semi);
-            let block_node = self.block();
-            let proc_decl = ProcedureDecl::new(proc_name.to_string(), block_node);
-            declarations.push(Node::ProcedureDecl(Box::new(proc_decl)));
-            self.eat(TokenType::Semi);
+                if let TokenType::LeftParen = self.current_token.as_ref().unwrap().type_ {
+                    self.eat(TokenType::LeftParen);
+
+                    params.extend(self.formal_parameter_list());
+
+                    self.eat(TokenType::RightParen);
+                }
+
+                self.eat(TokenType::Semi);
+                declarations.push(Node::ProcedureDecl(Box::new(ProcedureDecl::new(
+                    proc_name.to_string(),
+                    params,
+                    self.block(),
+                ))));
+                self.eat(TokenType::Semi);
+            } else {
+                break;
+            }
         }
         declarations
     }
@@ -208,6 +220,40 @@ impl Parser {
         }
 
         Type::new(token)
+    }
+
+    fn formal_parameter_list(&mut self) -> Vec<Param> {
+        if let TokenType::ID = self.current_token.as_ref().unwrap().type_ {
+            let mut param_nodes = self.formal_parameters();
+
+            while let TokenType::Semi = self.current_token.as_ref().unwrap().type_ {
+                self.eat(TokenType::Semi);
+                param_nodes.extend(self.formal_parameters());
+            }
+            param_nodes
+        } else {
+            Vec::new()
+        }
+    }
+
+    fn formal_parameters(&mut self) -> Vec<Param> {
+        let mut param_nodes = Vec::new();
+        let mut param_tokens = vec![self.current_token.clone().unwrap()];
+
+        self.eat(TokenType::ID);
+        while let TokenType::Comma = self.current_token.as_ref().unwrap().type_ {
+            self.eat(TokenType::Comma);
+            param_tokens.push(self.current_token.clone().unwrap());
+            self.eat(TokenType::ID);
+        }
+        self.eat(TokenType::Colon);
+        let type_node = self.type_spec();
+
+        for param_token in param_tokens {
+            param_nodes.push(Param::new(Var::new(param_token), type_node.clone()));
+        }
+
+        param_nodes
     }
 
     pub fn parse(&mut self) -> Node {

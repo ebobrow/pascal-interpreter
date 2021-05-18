@@ -14,6 +14,7 @@ pub enum Node {
     VarDecl(VarDecl),
     // Type(Type),
     ProcedureDecl(Box<ProcedureDecl>),
+    // Param(Param),
     NoOp,
 }
 
@@ -59,7 +60,7 @@ impl VarDecl {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Type {
     token: Token,
     pub value: Value,
@@ -75,7 +76,7 @@ impl Type {
 }
 
 // TODO: token field seems unnecessary?
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Var {
     token: Token,
     pub value: Value,
@@ -179,15 +180,32 @@ impl UnaryOp {
 
 #[derive(Debug)]
 pub struct ProcedureDecl {
-    proc_name: String,
-    block_node: Block,
+    pub proc_name: String,
+    pub block_node: Block,
+    pub params: Vec<Param>,
 }
 
 impl ProcedureDecl {
-    pub fn new(proc_name: String, block_node: Block) -> Self {
+    pub fn new(proc_name: String, params: Vec<Param>, block_node: Block) -> Self {
         ProcedureDecl {
             proc_name,
             block_node,
+            params,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Param {
+    pub var_node: Var,
+    pub type_node: Type,
+}
+
+impl Param {
+    pub fn new(var_node: Var, type_node: Type) -> Self {
+        Param {
+            var_node,
+            type_node,
         }
     }
 }
