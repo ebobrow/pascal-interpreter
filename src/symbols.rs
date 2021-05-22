@@ -66,7 +66,7 @@ impl NodeVisitor for SymbolTableBuilder {
             .lookup(var_decl.type_node.value.expect_string(), false)
             .unwrap();
         let var_name = var_decl.var_node.value.expect_string();
-        let var_symbol = VarSymbol::new(var_name.clone(), type_symbol.clone());
+        let var_symbol = VarSymbol::new(var_name, type_symbol.clone());
 
         self.symtab.insert(Symbol::Var(Box::new(var_symbol)));
     }
@@ -94,7 +94,7 @@ impl SymbolTable {
             symbols: HashMap::new(),
             scope_level,
             scope_name,
-            enclosing_scope: enclosing_scope.map(|t| Box::new(t)),
+            enclosing_scope: enclosing_scope.map(Box::new),
         };
         symtab.init_builtins();
         symtab
@@ -200,7 +200,9 @@ END.";
         let lexer = Lexer::new(text.to_string());
         let mut parser = Parser::new(lexer);
         let tree = parser.parse();
-        let mut symtab_builder = SymbolTableBuilder::new();
+        let mut symtab_builder = SymbolTableBuilder {
+            symtab: SymbolTable::new("global".to_string(), 1, None),
+        };
         symtab_builder.visit(&tree);
 
         let mut expected = SymbolTable::new(String::from("global"), 1, None);
@@ -229,7 +231,9 @@ END.";
         let lexer = Lexer::new(text.to_string());
         let mut parser = Parser::new(lexer);
         let tree = parser.parse();
-        let mut symtab_builder = SymbolTableBuilder::new();
+        let mut symtab_builder = SymbolTableBuilder {
+            symtab: SymbolTable::new("global".to_string(), 1, None),
+        };
         symtab_builder.visit(&tree);
     }
 }

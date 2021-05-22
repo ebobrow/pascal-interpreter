@@ -68,16 +68,30 @@ impl Display for Value {
 pub struct Token {
     pub type_: TokenType,
     pub value: Value,
+    lineno: usize,
+    column: usize,
 }
 
 impl Token {
-    pub fn new(type_: TokenType, value: Value) -> Self {
-        Token { type_, value }
+    pub fn new(type_: TokenType, value: Value, lineno: usize, column: usize) -> Self {
+        Token {
+            type_,
+            value,
+            lineno,
+            column,
+        }
     }
 }
 
 impl Display for Token {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Token({:?}, {})", self.type_, self.value.to_string())
+        write!(
+            f,
+            "Token({:?}, {}, position={}:{})",
+            self.type_,
+            self.value.to_string(),
+            self.lineno,
+            self.column
+        )
     }
 }

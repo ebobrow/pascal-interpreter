@@ -78,7 +78,7 @@ impl Type {
 // TODO: token field seems unnecessary?
 #[derive(Clone, Debug, PartialEq)]
 pub struct Var {
-    token: Token,
+    pub token: Token,
     pub value: Value,
 }
 

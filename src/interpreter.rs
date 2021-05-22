@@ -176,11 +176,11 @@ mod tests {
 
     #[test]
     fn binary_ops() {
-        let mul = Token::new(TokenType::Mul, Value::Char('*'));
-        let plus = Token::new(TokenType::Plus, Value::Char('+'));
-        let two = Token::new(TokenType::Integer, Value::Float(2.0));
-        let seven = Token::new(TokenType::Integer, Value::Float(7.0));
-        let three = Token::new(TokenType::Integer, Value::Float(3.0));
+        let mul = Token::new(TokenType::Mul, Value::Char('*'), 1, 1);
+        let plus = Token::new(TokenType::Plus, Value::Char('+'), 1, 1);
+        let two = Token::new(TokenType::Integer, Value::Float(2.0), 1, 1);
+        let seven = Token::new(TokenType::Integer, Value::Float(7.0), 1, 1);
+        let three = Token::new(TokenType::Integer, Value::Float(3.0), 1, 1);
 
         let add_node = Node::BinOp(Box::new(BinOp::new(
             Node::BinOp(Box::new(BinOp::new(
@@ -202,9 +202,9 @@ mod tests {
 
     #[test]
     fn unary_op() {
-        let five = Token::new(TokenType::Integer, Value::Float(5.0));
-        let two = Token::new(TokenType::Integer, Value::Float(2.0));
-        let minus = Token::new(TokenType::Minus, Value::Char('-'));
+        let five = Token::new(TokenType::Integer, Value::Float(5.0), 1, 1);
+        let two = Token::new(TokenType::Integer, Value::Float(2.0), 1, 1);
+        let minus = Token::new(TokenType::Minus, Value::Char('-'), 1, 1);
 
         // 5 - -2
         let expr_node = Node::BinOp(Box::new(BinOp::new(

@@ -1,6 +1,8 @@
 use crate::ast::*;
+use crate::error::{ErrorCode, SemanticError};
 use crate::interpreter::NodeVisitor;
 use crate::symbols::{ProcedureSymbol, Symbol, SymbolTable, VarSymbol};
+use crate::tokens::Token;
 use crate::tokens::Value;
 
 pub struct SemanticAnalyzer {
@@ -12,6 +14,15 @@ impl SemanticAnalyzer {
         SemanticAnalyzer {
             current_scope: SymbolTable::new(String::from("global"), 1, None),
         }
+    }
+
+    fn error(&self, error_code: ErrorCode, token: Token) {
+        SemanticError::new(
+            format!("{} -> {}", error_code.to_string(), token),
+            error_code,
+            token,
+        )
+        .throw();
     }
 
     pub fn print_symbols(&self) {
@@ -49,7 +60,10 @@ impl NodeVisitor for SemanticAnalyzer {
         let var_name = var.value.expect_string();
         self.current_scope
             .lookup(var_name.clone(), false)
-            .unwrap_or_else(|| panic!("Identifier not found: `{}`", var_name));
+            .unwrap_or_else(|| {
+                self.error(ErrorCode::IDNotFound, var.token.clone());
+                unreachable!()
+            });
 
         Value::None
     }
@@ -59,7 +73,7 @@ impl NodeVisitor for SemanticAnalyzer {
         self.current_scope = SymbolTable::new(String::from("global"), 1, None);
         self.visit_block(&program.block);
         self.current_scope = *std::mem::replace(&mut self.current_scope.enclosing_scope, None)
-            .unwrap_or(Box::new(SymbolTable::new(String::from("global"), 1, None)));
+            .unwrap_or_else(|| Box::new(SymbolTable::new(String::from("global"), 1, None)));
         self.print_symbols();
         println!("LEAVE scope: global");
         Value::None
@@ -75,7 +89,7 @@ impl NodeVisitor for SemanticAnalyzer {
     fn visit_var_decl(&mut self, var_decl: &VarDecl) {
         let var_name = var_decl.var_node.value.expect_string();
         if self.current_scope.lookup(var_name.clone(), true).is_some() {
-            panic!("Duplicate identifier found: `{}`", &var_name);
+            self.error(ErrorCode::DuplicateID, var_decl.var_node.token.clone());
         }
 
         self.current_scope

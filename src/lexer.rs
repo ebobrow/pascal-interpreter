@@ -1,3 +1,4 @@
+use crate::error::LexerError;
 use crate::tokens::{Token, TokenType, Value};
 use phf::phf_map;
 
@@ -16,6 +17,8 @@ pub struct Lexer {
     text: String,
     pos: usize,
     current_char: Option<char>,
+    lineno: usize,
+    column: usize,
 }
 
 impl Lexer {
@@ -24,19 +27,32 @@ impl Lexer {
             text: text.clone(),
             pos: 0,
             current_char: Some(text.as_bytes()[0] as char),
+            lineno: 1,
+            column: 1,
         }
     }
 
     fn error(&self) {
-        panic!("Invalid character");
+        LexerError::new(format!(
+            "Lexer error on `{}` line: {} column: {}",
+            self.current_char.clone().unwrap(),
+            self.lineno,
+            self.column
+        ))
+        .throw();
     }
 
     fn advance(&mut self) {
+        if let Some('\n') = self.current_char {
+            self.lineno += 1;
+            self.column = 0;
+        }
         self.pos += 1;
         if self.pos > self.text.len() - 1 {
             self.current_char = None;
         } else {
             self.current_char = Some(self.text.as_bytes()[self.pos] as char);
+            self.column += 1;
         }
     }
 
@@ -68,11 +84,18 @@ impl Lexer {
                 result.push(n);
                 self.advance();
             }
-            Token::new(TokenType::RealConst, Value::Float(result.parse().unwrap()))
+            Token::new(
+                TokenType::RealConst,
+                Value::Float(result.parse().unwrap()),
+                self.lineno,
+                self.column,
+            )
         } else {
             Token::new(
                 TokenType::IntegerConst,
                 Value::Integer(result.parse().unwrap()),
+                self.lineno,
+                self.column,
             )
         }
     }
@@ -91,53 +114,78 @@ impl Lexer {
             match c {
                 '+' => {
                     self.advance();
-                    return Token::new(TokenType::Plus, Value::Char(c));
+                    return Token::new(TokenType::Plus, Value::Char(c), self.lineno, self.column);
                 }
 
                 '-' => {
                     self.advance();
-                    return Token::new(TokenType::Minus, Value::Char(c));
+                    return Token::new(TokenType::Minus, Value::Char(c), self.lineno, self.column);
                 }
 
                 '*' => {
                     self.advance();
-                    return Token::new(TokenType::Mul, Value::Char(c));
+                    return Token::new(TokenType::Mul, Value::Char(c), self.lineno, self.column);
                 }
 
                 '/' => {
                     self.advance();
-                    return Token::new(TokenType::FloatDiv, Value::Char(c));
+                    return Token::new(
+                        TokenType::FloatDiv,
+                        Value::Char(c),
+                        self.lineno,
+                        self.column,
+                    );
                 }
 
                 '(' => {
                     self.advance();
-                    return Token::new(TokenType::LeftParen, Value::Char(c));
+                    return Token::new(
+                        TokenType::LeftParen,
+                        Value::Char(c),
+                        self.lineno,
+                        self.column,
+                    );
                 }
 
                 ')' => {
                     self.advance();
-                    return Token::new(TokenType::RightParen, Value::Char(c));
+                    return Token::new(
+                        TokenType::RightParen,
+                        Value::Char(c),
+                        self.lineno,
+                        self.column,
+                    );
                 }
 
                 ':' => {
                     if let Some('=') = self.peek() {
                         self.advance();
                         self.advance();
-                        return Token::new(TokenType::Assign, Value::String(String::from(":=")));
+                        return Token::new(
+                            TokenType::Assign,
+                            Value::String(String::from(":=")),
+                            self.lineno,
+                            self.column,
+                        );
                     } else {
                         self.advance();
-                        return Token::new(TokenType::Colon, Value::Char(c));
+                        return Token::new(
+                            TokenType::Colon,
+                            Value::Char(c),
+                            self.lineno,
+                            self.column,
+                        );
                     }
                 }
 
                 ';' => {
                     self.advance();
-                    return Token::new(TokenType::Semi, Value::Char(c));
+                    return Token::new(TokenType::Semi, Value::Char(c), self.lineno, self.column);
                 }
 
                 '.' => {
                     self.advance();
-                    return Token::new(TokenType::Dot, Value::Char(c));
+                    return Token::new(TokenType::Dot, Value::Char(c), self.lineno, self.column);
                 }
 
                 '{' => {
@@ -148,7 +196,7 @@ impl Lexer {
 
                 ',' => {
                     self.advance();
-                    return Token::new(TokenType::Comma, Value::Char(c));
+                    return Token::new(TokenType::Comma, Value::Char(c), self.lineno, self.column);
                 }
 
                 c => {
@@ -162,7 +210,7 @@ impl Lexer {
                 }
             }
         }
-        Token::new(TokenType::EOF, Value::None)
+        Token::new(TokenType::EOF, Value::None, self.lineno, self.column)
     }
 
     fn peek(&self) -> Option<char> {
@@ -184,8 +232,13 @@ impl Lexer {
         }
 
         RESERVED_KEYWORDS.get(&result[..]).map_or(
-            Token::new(TokenType::ID, Value::String(result.clone())),
-            |t| Token::new(t.clone(), Value::String(result)),
+            Token::new(
+                TokenType::ID,
+                Value::String(result.clone()),
+                self.lineno,
+                self.column,
+            ),
+            |t| Token::new(t.clone(), Value::String(result), self.lineno, self.column),
         )
     }
 }

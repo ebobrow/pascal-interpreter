@@ -1,4 +1,5 @@
 use crate::ast::*;
+use crate::error::{ErrorCode, ParserError};
 use crate::lexer::Lexer;
 use crate::tokens::{Token, TokenType};
 
@@ -16,11 +17,18 @@ impl Parser {
         }
     }
 
+    fn error(&self, error_code: ErrorCode, token: Token) {
+        ParserError::new(format!("{} -> {}", error_code, token), error_code, token).throw();
+    }
+
     fn eat(&mut self, token_type: TokenType) {
         if self.current_token.as_ref().unwrap().type_ == token_type {
             self.current_token = Some(self.lexer.get_next_token());
         } else {
-            panic!(format!("Unexpected token: expected `{:?}`", token_type));
+            self.error(
+                ErrorCode::UnexpectedToken,
+                self.current_token.clone().unwrap(),
+            );
         }
     }
 
@@ -118,7 +126,7 @@ impl Parser {
         }
 
         if let TokenType::ID = self.current_token.as_ref().unwrap().type_ {
-            panic!("Unexpected ID");
+            self.error(ErrorCode::DuplicateID, self.current_token.clone().unwrap());
         }
 
         results
@@ -156,39 +164,37 @@ impl Parser {
 
     fn declarations(&mut self) -> Vec<Node> {
         let mut declarations = Vec::new();
-        loop {
-            if let TokenType::Var = self.current_token.as_ref().unwrap().type_ {
-                self.eat(TokenType::Var);
-                while let TokenType::ID = self.current_token.as_ref().unwrap().type_ {
-                    declarations.append(&mut self.variable_declaration());
-                    self.eat(TokenType::Semi);
-                }
-            } else if let TokenType::Procedure = self.current_token.as_ref().unwrap().type_ {
-                self.eat(TokenType::Procedure);
-                let proc_name = self.current_token.as_ref().unwrap().value.clone();
-                self.eat(TokenType::ID);
-                let mut params = Vec::new();
-
-                if let TokenType::LeftParen = self.current_token.as_ref().unwrap().type_ {
-                    self.eat(TokenType::LeftParen);
-
-                    params.extend(self.formal_parameter_list());
-
-                    self.eat(TokenType::RightParen);
-                }
-
+        if let TokenType::Var = self.current_token.as_ref().unwrap().type_ {
+            self.eat(TokenType::Var);
+            while let TokenType::ID = self.current_token.as_ref().unwrap().type_ {
+                declarations.append(&mut self.variable_declaration());
                 self.eat(TokenType::Semi);
-                declarations.push(Node::ProcedureDecl(Box::new(ProcedureDecl::new(
-                    proc_name.to_string(),
-                    params,
-                    self.block(),
-                ))));
-                self.eat(TokenType::Semi);
-            } else {
-                break;
             }
         }
+        while let TokenType::Procedure = self.current_token.as_ref().unwrap().type_ {
+            declarations.push(Node::ProcedureDecl(Box::new(self.procedure_declaration())))
+        }
         declarations
+    }
+
+    fn procedure_declaration(&mut self) -> ProcedureDecl {
+        self.eat(TokenType::Procedure);
+        let proc_name = self.current_token.as_ref().unwrap().value.clone();
+        self.eat(TokenType::ID);
+        let mut params = Vec::new();
+
+        if let TokenType::LeftParen = self.current_token.as_ref().unwrap().type_ {
+            self.eat(TokenType::LeftParen);
+
+            params.extend(self.formal_parameter_list());
+
+            self.eat(TokenType::RightParen);
+        }
+
+        self.eat(TokenType::Semi);
+        let proc_decl = ProcedureDecl::new(proc_name.to_string(), params, self.block());
+        self.eat(TokenType::Semi);
+        proc_decl
     }
 
     fn variable_declaration(&mut self) -> Vec<Node> {
