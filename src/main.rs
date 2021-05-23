@@ -28,7 +28,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let parser = Parser::new(lexer);
     let mut interpreter = Interpreter::new(parser);
     let _result = interpreter.interpret();
-    interpreter.print_memory();
 
     Ok(())
 }

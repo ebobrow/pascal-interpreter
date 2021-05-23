@@ -21,7 +21,7 @@ pub enum Node {
 
 #[derive(Debug)]
 pub struct Program {
-    name: String,
+    pub name: String,
     pub block: Block,
 }
 

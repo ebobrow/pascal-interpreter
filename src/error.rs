@@ -14,6 +14,7 @@ impl Display for ErrorCode {
             ErrorCode::DuplicateID => write!(f, "Duplicate id found"),
             ErrorCode::UnexpectedToken => write!(f, "Unexpected token"),
             ErrorCode::IDNotFound => write!(f, "Identifier not found"),
+            ErrorCode::WrongParamsNum => write!(f, "Wrong number of params"),
         }
     }
 }

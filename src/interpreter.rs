@@ -1,7 +1,7 @@
 use crate::ast::*;
 use crate::parser::Parser;
+use crate::symbols::{ARType, ActivationRecord, CallStack};
 use crate::tokens::{TokenType, Value};
-use std::collections::HashMap;
 
 pub trait NodeVisitor {
     fn visit_num(&mut self, num: &Num) -> Value;
@@ -51,24 +51,20 @@ pub trait NodeVisitor {
 
 pub struct Interpreter {
     parser: Parser,
-    global_scope: HashMap<String, Value>,
+    call_stack: CallStack,
 }
 
 impl Interpreter {
     pub fn new(parser: Parser) -> Self {
         Interpreter {
             parser,
-            global_scope: HashMap::new(),
+            call_stack: CallStack::new(),
         }
     }
 
     pub fn interpret(&mut self) -> Value {
         let tree = self.parser.parse();
         self.visit(&tree)
-    }
-
-    pub fn print_memory(&self) {
-        println!("GLOBAL_MEMORY contents: {:#?}", self.global_scope);
     }
 }
 
@@ -134,21 +130,29 @@ impl NodeVisitor for Interpreter {
     }
 
     fn visit_assign(&mut self, assign: &Assign) {
-        let var_name = assign.left.value.expect_string();
         let value = self.visit(&assign.right);
-        self.global_scope.insert(var_name.to_lowercase(), value);
+        let ar = self.call_stack.peek().unwrap();
+        ar.set(assign.left.value.expect_string(), value);
     }
 
     fn visit_var(&mut self, var: &Var) -> Value {
-        let var_name = var.value.expect_string();
-        self.global_scope
-            .get(&var_name.to_lowercase())
+        let ar = self.call_stack.peek().unwrap();
+        ar.get(var.value.expect_string().to_lowercase())
             .unwrap()
             .clone()
     }
 
     fn visit_program(&mut self, program: &Program) -> Value {
+        println!("ENTER PROGRAM: {}", &program.name);
+        self.call_stack.push(ActivationRecord::new(
+            program.name.clone(),
+            ARType::Program,
+            1,
+        ));
         self.visit_block(&program.block);
+        println!("{:#?}", self.call_stack);
+        println!("EXIT PROGRAM: {}", &program.name);
+        self.call_stack.pop();
         Value::None
     }
 
@@ -252,6 +256,6 @@ END.";
         expected.insert(String::from("c"), Value::Integer(27));
         expected.insert(String::from("b"), Value::Integer(25));
 
-        assert_eq!(interpreter.global_scope, expected);
+        assert_eq!(interpreter.call_stack, expected);
     }
 }

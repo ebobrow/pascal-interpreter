@@ -74,7 +74,7 @@ impl NodeVisitor for SemanticAnalyzer {
         self.visit_block(&program.block);
         self.current_scope = *std::mem::replace(&mut self.current_scope.enclosing_scope, None)
             .unwrap_or_else(|| Box::new(SymbolTable::new(String::from("global"), 1, None)));
-        self.print_symbols();
+        // self.print_symbols();
         println!("LEAVE scope: global");
         Value::None
     }
@@ -133,7 +133,7 @@ impl NodeVisitor for SemanticAnalyzer {
 
         self.visit_block(&procedure_decl.block_node);
 
-        self.print_symbols();
+        // self.print_symbols();
         self.current_scope =
             *std::mem::replace(&mut self.current_scope.enclosing_scope, None).unwrap();
         println!("LEAVE scope: {}", procedure_decl.proc_name.clone());

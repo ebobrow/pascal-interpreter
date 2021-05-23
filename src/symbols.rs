@@ -3,14 +3,65 @@ use crate::interpreter::NodeVisitor;
 use crate::tokens::Value;
 use std::collections::HashMap;
 
-pub struct SymbolTableBuilder {
-    symtab: SymbolTable,
+#[derive(Debug)]
+pub struct CallStack {
+    records: Vec<ActivationRecord>,
 }
 
-impl SymbolTableBuilder {
-    pub fn print_contents(&self) {
-        println!("Symbol table contents: {:#?}", self.symtab);
+impl CallStack {
+    pub fn new() -> Self {
+        CallStack {
+            records: Vec::new(),
+        }
     }
+
+    pub fn push(&mut self, ar: ActivationRecord) {
+        self.records.push(ar);
+    }
+
+    pub fn pop(&mut self) -> Option<ActivationRecord> {
+        self.records.pop()
+    }
+
+    pub fn peek(&mut self) -> Option<&mut ActivationRecord> {
+        self.records.last_mut()
+    }
+}
+
+#[derive(Debug)]
+pub enum ARType {
+    Program,
+}
+
+#[derive(Debug)]
+pub struct ActivationRecord {
+    name: String,
+    type_: ARType,
+    nesting_level: usize,
+    members: HashMap<String, Value>, // ?
+}
+
+impl ActivationRecord {
+    pub fn new(name: String, type_: ARType, nesting_level: usize) -> Self {
+        ActivationRecord {
+            name,
+            type_,
+            nesting_level,
+            members: HashMap::new(),
+        }
+    }
+
+    pub fn set(&mut self, key: String, value: Value) {
+        self.members.insert(key, value);
+    }
+
+    pub fn get(&self, key: String) -> Option<&Value> {
+        self.members.get(&key)
+    }
+}
+
+pub struct SymbolTableBuilder {
+    symtab: SymbolTable,
 }
 
 impl NodeVisitor for SymbolTableBuilder {
@@ -44,6 +95,7 @@ impl NodeVisitor for SymbolTableBuilder {
         let var_name = var.value.expect_string();
         self.symtab
             .lookup(var_name.clone(), false)
+            // TODO: Use error class
             .unwrap_or_else(|| panic!("Use of undeclared variable: {}", var_name));
         Value::None
     }
