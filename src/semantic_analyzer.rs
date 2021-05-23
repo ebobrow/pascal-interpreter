@@ -138,4 +138,20 @@ impl NodeVisitor for SemanticAnalyzer {
             *std::mem::replace(&mut self.current_scope.enclosing_scope, None).unwrap();
         println!("LEAVE scope: {}", procedure_decl.proc_name.clone());
     }
+
+    fn visit_procedure_call(&mut self, procedure_call: &ProcedureCall) {
+        if let Some(Symbol::Procedure(proc)) = self
+            .current_scope
+            .lookup(procedure_call.proc_name.clone(), true)
+        {
+            if proc.params.len() != procedure_call.actual_params.len() {
+                self.error(ErrorCode::WrongParamsNum, procedure_call.token.clone());
+            }
+            for param_node in &procedure_call.actual_params {
+                self.visit(param_node);
+            }
+        } else {
+            self.error(ErrorCode::IDNotFound, procedure_call.token.clone());
+        }
+    }
 }

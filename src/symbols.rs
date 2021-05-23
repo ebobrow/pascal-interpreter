@@ -74,6 +74,8 @@ impl NodeVisitor for SymbolTableBuilder {
     fn visit_type(&mut self, _: &Type) {}
 
     fn visit_procedure_decl(&mut self, _: &ProcedureDecl) {}
+
+    fn visit_procedure_call(&mut self, _: &ProcedureCall) {}
 }
 
 #[derive(Debug, PartialEq)]

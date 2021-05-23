@@ -16,7 +16,7 @@ const RESERVED_KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
 pub struct Lexer {
     text: String,
     pos: usize,
-    current_char: Option<char>,
+    pub current_char: Option<char>,
     lineno: usize,
     column: usize,
 }

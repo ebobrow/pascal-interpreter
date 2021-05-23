@@ -110,7 +110,13 @@ impl Parser {
     fn statement(&mut self) -> Node {
         match self.current_token.as_ref().unwrap().type_ {
             TokenType::Begin => self.compound_statement(),
-            TokenType::ID => self.assignment_statement(),
+            TokenType::ID => {
+                if let Some('(') = self.lexer.current_char {
+                    self.proccall_statement()
+                } else {
+                    self.assignment_statement()
+                }
+            }
             _ => self.empty(),
         }
     }
@@ -260,6 +266,32 @@ impl Parser {
         }
 
         param_nodes
+    }
+
+    fn proccall_statement(&mut self) -> Node {
+        let token = self.current_token.clone().unwrap();
+
+        self.eat(TokenType::ID);
+        self.eat(TokenType::LeftParen);
+        let mut actual_params = Vec::new();
+
+        if let TokenType::LeftParen = self.current_token.as_ref().unwrap().type_ {
+        } else {
+            actual_params.push(self.expr());
+        }
+
+        while let TokenType::Comma = self.current_token.as_ref().unwrap().type_ {
+            self.eat(TokenType::Comma);
+            actual_params.push(self.expr());
+        }
+
+        self.eat(TokenType::RightParen);
+
+        Node::ProcedureCall(ProcedureCall::new(
+            token.value.expect_string(),
+            actual_params,
+            token,
+        ))
     }
 
     pub fn parse(&mut self) -> Node {

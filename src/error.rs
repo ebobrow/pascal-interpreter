@@ -5,6 +5,7 @@ pub enum ErrorCode {
     UnexpectedToken,
     IDNotFound,
     DuplicateID,
+    WrongParamsNum,
 }
 
 impl Display for ErrorCode {

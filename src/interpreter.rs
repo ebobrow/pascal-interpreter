@@ -15,6 +15,7 @@ pub trait NodeVisitor {
     fn visit_var_decl(&mut self, var_decl: &VarDecl);
     fn visit_type(&mut self, type_: &Type);
     fn visit_procedure_decl(&mut self, procedure_decl: &ProcedureDecl);
+    fn visit_procedure_call(&mut self, procedure_call: &ProcedureCall);
 
     fn visit(&mut self, node: &Node) -> Value {
         match node {
@@ -39,14 +40,11 @@ pub trait NodeVisitor {
             Node::ProcedureDecl(n) => {
                 self.visit_procedure_decl(n);
                 Value::None
-            } // Node::Block(n) => {
-              //     self.visit_block(n);
-              //     Value::None
-              // }
-              // Node::Type(n) => {
-              //     self.visit_type(n);
-              //     Value::None
-              // }
+            }
+            Node::ProcedureCall(n) => {
+                self.visit_procedure_call(n);
+                Value::None
+            }
         }
     }
 }
@@ -166,6 +164,8 @@ impl NodeVisitor for Interpreter {
     fn visit_type(&mut self, _: &Type) {}
 
     fn visit_procedure_decl(&mut self, _: &ProcedureDecl) {}
+
+    fn visit_procedure_call(&mut self, _: &ProcedureCall) {}
 }
 
 #[cfg(test)]

@@ -15,6 +15,7 @@ pub enum Node {
     // Type(Type),
     ProcedureDecl(Box<ProcedureDecl>),
     // Param(Param),
+    ProcedureCall(ProcedureCall),
     NoOp,
 }
 
@@ -206,6 +207,23 @@ impl Param {
         Param {
             var_node,
             type_node,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ProcedureCall {
+    pub proc_name: String,
+    pub actual_params: Vec<Node>,
+    pub token: Token,
+}
+
+impl ProcedureCall {
+    pub fn new(proc_name: String, actual_params: Vec<Node>, token: Token) -> Self {
+        ProcedureCall {
+            proc_name,
+            actual_params,
+            token,
         }
     }
 }
