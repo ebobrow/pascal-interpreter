@@ -39,7 +39,7 @@ pub struct ActivationRecord {
     name: String,
     type_: ARType,
     nesting_level: usize,
-    members: HashMap<String, Value>, // ?
+    members: HashMap<String, Value>,
 }
 
 impl ActivationRecord {

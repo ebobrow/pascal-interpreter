@@ -102,7 +102,10 @@ impl NodeVisitor for SemanticAnalyzer {
             .insert(Symbol::Var(Box::new(VarSymbol::new(
                 var_name,
                 self.current_scope
-                    .lookup(var_decl.type_node.value.expect_string(), false)
+                    .lookup(
+                        var_decl.type_node.value.expect_string().to_uppercase(),
+                        false,
+                    )
                     .unwrap()
                     .clone(),
             ))));
@@ -133,7 +136,7 @@ impl NodeVisitor for SemanticAnalyzer {
             let var_symbol = VarSymbol::new(
                 param.var_node.value.expect_string(),
                 self.current_scope
-                    .lookup(param.type_node.value.expect_string(), false)
+                    .lookup(param.type_node.value.expect_string().to_uppercase(), false)
                     .unwrap()
                     .clone(),
             );

@@ -231,7 +231,7 @@ impl Lexer {
             self.advance();
         }
 
-        RESERVED_KEYWORDS.get(&result[..]).map_or(
+        RESERVED_KEYWORDS.get(&result.to_uppercase()[..]).map_or(
             Token::new(
                 TokenType::ID,
                 Value::String(result.clone()),
