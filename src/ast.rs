@@ -1,7 +1,8 @@
+use crate::symbols::ProcedureSymbol;
 use crate::tokens::{Token, Value};
 
 // TODO: Instead of structs for node types, store data directly in enum
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Node {
     BinOp(Box<BinOp>),
     Num(Num),
@@ -16,10 +17,11 @@ pub enum Node {
     ProcedureDecl(Box<ProcedureDecl>),
     // Param(Param),
     ProcedureCall(ProcedureCall),
+    Block(Box<Block>),
     NoOp,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Program {
     pub name: String,
     pub block: Block,
@@ -31,7 +33,7 @@ impl Program {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Block {
     pub declarations: Vec<Node>,
     pub compound_statement: Node,
@@ -46,7 +48,7 @@ impl Block {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct VarDecl {
     pub var_node: Var,
     pub type_node: Type,
@@ -92,7 +94,7 @@ impl Var {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Assign {
     pub left: Var,
     token: Token,
@@ -111,7 +113,7 @@ impl Assign {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Compound {
     pub children: Vec<Node>,
 }
@@ -128,7 +130,7 @@ impl Compound {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BinOp {
     pub left: Node,
     token: Token,
@@ -147,7 +149,7 @@ impl BinOp {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Num {
     token: Token,
     pub value: Value,
@@ -162,7 +164,7 @@ impl Num {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UnaryOp {
     token: Token,
     pub op: Token,
@@ -179,19 +181,19 @@ impl UnaryOp {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ProcedureDecl {
     pub proc_name: String,
     pub block_node: Block,
-    pub params: Vec<Param>,
+    pub formal_params: Vec<Param>,
 }
 
 impl ProcedureDecl {
-    pub fn new(proc_name: String, params: Vec<Param>, block_node: Block) -> Self {
+    pub fn new(proc_name: String, formal_params: Vec<Param>, block_node: Block) -> Self {
         ProcedureDecl {
             proc_name,
             block_node,
-            params,
+            formal_params,
         }
     }
 }
@@ -211,11 +213,12 @@ impl Param {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ProcedureCall {
     pub proc_name: String,
     pub actual_params: Vec<Node>,
     pub token: Token,
+    pub proc_symbol: Option<ProcedureSymbol>,
 }
 
 impl ProcedureCall {
@@ -224,6 +227,7 @@ impl ProcedureCall {
             proc_name,
             actual_params,
             token,
+            proc_symbol: None,
         }
     }
 }

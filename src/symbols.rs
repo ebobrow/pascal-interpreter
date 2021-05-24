@@ -3,7 +3,7 @@ use crate::interpreter::NodeVisitor;
 use crate::tokens::Value;
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct CallStack {
     records: Vec<ActivationRecord>,
 }
@@ -28,12 +28,13 @@ impl CallStack {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ARType {
     Program,
+    Procedure,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ActivationRecord {
     name: String,
     type_: ARType,
@@ -65,33 +66,37 @@ pub struct SymbolTableBuilder {
 }
 
 impl NodeVisitor for SymbolTableBuilder {
-    fn visit_num(&mut self, _: &Num) -> Value {
+    fn visit_num(&mut self, _: &mut Num) -> Value {
         Value::None
     }
 
-    fn visit_bin_op(&mut self, bin_op: &BinOp) -> Value {
-        self.visit(&bin_op.left);
-        self.visit(&bin_op.right)
+    fn visit_bin_op(&mut self, bin_op: &mut BinOp) -> Value {
+        self.visit(&mut bin_op.left);
+        self.visit(&mut bin_op.right)
     }
 
-    fn visit_unary_op(&mut self, unary_op: &UnaryOp) -> Value {
-        self.visit(&unary_op.expr)
+    fn visit_unary_op(&mut self, unary_op: &mut UnaryOp) -> Value {
+        self.visit(&mut unary_op.expr)
     }
 
-    fn visit_compound(&mut self, compound: &Compound) {
-        for child in &compound.children {
+    fn visit_compound(&mut self, compound: &mut Compound) -> Value {
+        for child in &mut compound.children {
             self.visit(child);
         }
+
+        Value::None
     }
 
-    fn visit_assign(&mut self, assign: &Assign) {
+    fn visit_assign(&mut self, assign: &mut Assign) -> Value {
         let var_name = assign.left.value.expect_string();
         self.symtab.lookup(var_name, false).unwrap();
 
-        self.visit(&assign.right);
+        self.visit(&mut assign.right);
+
+        Value::None
     }
 
-    fn visit_var(&mut self, var: &Var) -> Value {
+    fn visit_var(&mut self, var: &mut Var) -> Value {
         let var_name = var.value.expect_string();
         self.symtab
             .lookup(var_name.clone(), false)
@@ -100,19 +105,21 @@ impl NodeVisitor for SymbolTableBuilder {
         Value::None
     }
 
-    fn visit_program(&mut self, program: &Program) -> Value {
-        self.visit_block(&program.block);
+    fn visit_program(&mut self, program: &mut Program) -> Value {
+        self.visit_block(&mut program.block);
         Value::None
     }
 
-    fn visit_block(&mut self, block: &Block) {
-        for declaration in &block.declarations {
+    fn visit_block(&mut self, block: &mut Block) -> Value {
+        for declaration in &mut block.declarations {
             self.visit(declaration);
         }
-        self.visit(&block.compound_statement);
+        self.visit(&mut block.compound_statement);
+
+        Value::None
     }
 
-    fn visit_var_decl(&mut self, var_decl: &VarDecl) {
+    fn visit_var_decl(&mut self, var_decl: &mut VarDecl) -> Value {
         let type_symbol = self
             .symtab
             .lookup(var_decl.type_node.value.expect_string(), false)
@@ -121,13 +128,21 @@ impl NodeVisitor for SymbolTableBuilder {
         let var_symbol = VarSymbol::new(var_name, type_symbol.clone());
 
         self.symtab.insert(Symbol::Var(Box::new(var_symbol)));
+
+        Value::None
     }
 
-    fn visit_type(&mut self, _: &Type) {}
+    fn visit_type(&mut self, _: &mut Type) -> Value {
+        Value::None
+    }
 
-    fn visit_procedure_decl(&mut self, _: &ProcedureDecl) {}
+    fn visit_procedure_decl(&mut self, _: &mut ProcedureDecl) -> Value {
+        Value::None
+    }
 
-    fn visit_procedure_call(&mut self, _: &ProcedureCall) {}
+    fn visit_procedure_call(&mut self, _: &mut ProcedureCall) -> Value {
+        Value::None
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -213,7 +228,7 @@ impl BuiltinTypeSymbol {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct VarSymbol {
-    name: String,
+    pub name: String,
     type_: Symbol,
 }
 
@@ -226,12 +241,17 @@ impl VarSymbol {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProcedureSymbol {
     name: String,
-    pub params: Vec<VarSymbol>,
+    pub formal_params: Vec<VarSymbol>,
+    pub block_ast: Option<Box<Block>>,
 }
 
 impl ProcedureSymbol {
-    pub fn new(name: String, params: Vec<VarSymbol>) -> Self {
-        ProcedureSymbol { name, params }
+    pub fn new(name: String, formal_params: Vec<VarSymbol>) -> Self {
+        ProcedureSymbol {
+            name,
+            formal_params,
+            block_ast: None,
+        }
     }
 }
 
@@ -253,11 +273,11 @@ BEGIN
 END.";
         let lexer = Lexer::new(text.to_string());
         let mut parser = Parser::new(lexer);
-        let tree = parser.parse();
+        let mut tree = parser.parse();
         let mut symtab_builder = SymbolTableBuilder {
             symtab: SymbolTable::new("global".to_string(), 1, None),
         };
-        symtab_builder.visit(&tree);
+        symtab_builder.visit(&mut tree);
 
         let mut expected = SymbolTable::new(String::from("global"), 1, None);
         expected.insert(Symbol::Var(Box::new(VarSymbol::new(
@@ -284,10 +304,10 @@ BEGIN
 END.";
         let lexer = Lexer::new(text.to_string());
         let mut parser = Parser::new(lexer);
-        let tree = parser.parse();
+        let mut tree = parser.parse();
         let mut symtab_builder = SymbolTableBuilder {
             symtab: SymbolTable::new("global".to_string(), 1, None),
         };
-        symtab_builder.visit(&tree);
+        symtab_builder.visit(&mut tree);
     }
 }

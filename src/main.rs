@@ -19,15 +19,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let lexer = Lexer::new(source.clone());
     let mut parser = Parser::new(lexer);
-    let tree = parser.parse();
+    let mut tree = parser.parse();
 
     let mut semantic_analyzer = SemanticAnalyzer::new();
-    semantic_analyzer.visit(&tree);
+    semantic_analyzer.visit(&mut tree);
 
-    let lexer = Lexer::new(source);
-    let parser = Parser::new(lexer);
-    let mut interpreter = Interpreter::new(parser);
-    let _result = interpreter.interpret();
+    let mut interpreter = Interpreter::new();
+    let _result = interpreter.visit(&mut tree);
 
     Ok(())
 }

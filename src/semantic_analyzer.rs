@@ -31,35 +31,39 @@ impl SemanticAnalyzer {
 }
 
 impl NodeVisitor for SemanticAnalyzer {
-    fn visit_num(&mut self, _: &Num) -> Value {
+    fn visit_num(&mut self, _: &mut Num) -> Value {
         Value::None
     }
 
-    fn visit_bin_op(&mut self, op: &BinOp) -> Value {
-        self.visit(&op.left);
-        self.visit(&op.right);
+    fn visit_bin_op(&mut self, op: &mut BinOp) -> Value {
+        self.visit(&mut op.left);
+        self.visit(&mut op.right);
         Value::None
     }
 
-    fn visit_unary_op(&mut self, _: &UnaryOp) -> Value {
+    fn visit_unary_op(&mut self, _: &mut UnaryOp) -> Value {
         Value::None
     }
 
-    fn visit_compound(&mut self, compound: &Compound) {
-        for child in &compound.children {
+    fn visit_compound(&mut self, compound: &mut Compound) -> Value {
+        for child in &mut compound.children {
             self.visit(child);
         }
+
+        Value::None
     }
 
-    fn visit_assign(&mut self, assign: &Assign) {
-        self.visit(&assign.right);
-        self.visit_var(&assign.left);
+    fn visit_assign(&mut self, assign: &mut Assign) -> Value {
+        self.visit(&mut assign.right);
+        self.visit_var(&mut assign.left);
+
+        Value::None
     }
 
-    fn visit_var(&mut self, var: &Var) -> Value {
+    fn visit_var(&mut self, var: &mut Var) -> Value {
         let var_name = var.value.expect_string();
         self.current_scope
-            .lookup(var_name.clone(), false)
+            .lookup(var_name, false)
             .unwrap_or_else(|| {
                 self.error(ErrorCode::IDNotFound, var.token.clone());
                 unreachable!()
@@ -68,25 +72,27 @@ impl NodeVisitor for SemanticAnalyzer {
         Value::None
     }
 
-    fn visit_program(&mut self, program: &Program) -> Value {
+    fn visit_program(&mut self, program: &mut Program) -> Value {
         println!("ENTER scope: global");
         self.current_scope = SymbolTable::new(String::from("global"), 1, None);
-        self.visit_block(&program.block);
+        self.visit_block(&mut program.block);
         self.current_scope = *std::mem::replace(&mut self.current_scope.enclosing_scope, None)
-            .unwrap_or_else(|| Box::new(SymbolTable::new(String::from("global"), 1, None)));
+            .unwrap_or_else(|| Box::new(SymbolTable::new(String::new(), 0, None)));
         // self.print_symbols();
         println!("LEAVE scope: global");
         Value::None
     }
 
-    fn visit_block(&mut self, block: &Block) {
-        for declaration in &block.declarations {
+    fn visit_block(&mut self, block: &mut Block) -> Value {
+        for declaration in &mut block.declarations {
             self.visit(declaration);
         }
-        self.visit(&block.compound_statement);
+        self.visit(&mut block.compound_statement);
+
+        Value::None
     }
 
-    fn visit_var_decl(&mut self, var_decl: &VarDecl) {
+    fn visit_var_decl(&mut self, var_decl: &mut VarDecl) -> Value {
         let var_name = var_decl.var_node.value.expect_string();
         if self.current_scope.lookup(var_name.clone(), true).is_some() {
             self.error(ErrorCode::DuplicateID, var_decl.var_node.token.clone());
@@ -100,12 +106,18 @@ impl NodeVisitor for SemanticAnalyzer {
                     .unwrap()
                     .clone(),
             ))));
+
+        Value::None
     }
 
-    fn visit_type(&mut self, _: &Type) {}
+    fn visit_type(&mut self, _: &mut Type) -> Value {
+        Value::None
+    }
 
-    fn visit_procedure_decl(&mut self, procedure_decl: &ProcedureDecl) {
+    fn visit_procedure_decl(&mut self, procedure_decl: &mut ProcedureDecl) -> Value {
         let mut proc_symbol = ProcedureSymbol::new(procedure_decl.proc_name.clone(), Vec::new());
+        // self.current_scope
+        //     .insert(Symbol::Procedure(proc_symbol.clone()));
 
         println!("ENTER scope: {}", procedure_decl.proc_name.clone());
 
@@ -117,7 +129,7 @@ impl NodeVisitor for SemanticAnalyzer {
         self.current_scope =
             SymbolTable::new(procedure_decl.proc_name.clone(), level, Some(prev_scope));
 
-        for param in &procedure_decl.params {
+        for param in &procedure_decl.formal_params {
             let var_symbol = VarSymbol::new(
                 param.var_node.value.expect_string(),
                 self.current_scope
@@ -127,31 +139,49 @@ impl NodeVisitor for SemanticAnalyzer {
             );
             self.current_scope
                 .insert(Symbol::Var(Box::new(var_symbol.clone())));
-            proc_symbol.params.push(var_symbol);
+            proc_symbol.formal_params.push(var_symbol);
         }
-        self.current_scope.insert(Symbol::Procedure(proc_symbol));
+        proc_symbol.block_ast = Some(Box::new(procedure_decl.block_node.clone()));
+        self.current_scope
+            .enclosing_scope
+            .as_mut()
+            .map(|scope| scope.insert(Symbol::Procedure(proc_symbol.clone())));
 
-        self.visit_block(&procedure_decl.block_node);
+        self.visit_block(&mut procedure_decl.block_node);
 
         // self.print_symbols();
         self.current_scope =
             *std::mem::replace(&mut self.current_scope.enclosing_scope, None).unwrap();
         println!("LEAVE scope: {}", procedure_decl.proc_name.clone());
+
+        // proc_symbol.block_ast = Some(Box::new(procedure_decl.block_node.clone()));
+
+        Value::None
     }
 
-    fn visit_procedure_call(&mut self, procedure_call: &ProcedureCall) {
+    fn visit_procedure_call(&mut self, procedure_call: &mut ProcedureCall) -> Value {
         if let Some(Symbol::Procedure(proc)) = self
             .current_scope
             .lookup(procedure_call.proc_name.clone(), true)
         {
-            if proc.params.len() != procedure_call.actual_params.len() {
+            if proc.formal_params.len() != procedure_call.actual_params.len() {
                 self.error(ErrorCode::WrongParamsNum, procedure_call.token.clone());
             }
-            for param_node in &procedure_call.actual_params {
+            for param_node in &mut procedure_call.actual_params {
                 self.visit(param_node);
             }
+            procedure_call.proc_symbol = match self
+                .current_scope
+                .lookup(procedure_call.proc_name.clone(), false)
+            {
+                Some(Symbol::Procedure(s)) => Some(s.clone()),
+                _ => panic!(),
+            };
         } else {
+            println!("{:?}", self.current_scope);
             self.error(ErrorCode::IDNotFound, procedure_call.token.clone());
         }
+
+        Value::None
     }
 }
