@@ -1,4 +1,5 @@
 use crate::ast::*;
+use crate::error::SemanticError;
 use crate::interpreter::NodeVisitor;
 use crate::tokens::Value;
 use std::collections::HashMap;
@@ -38,7 +39,7 @@ pub enum ARType {
 pub struct ActivationRecord {
     name: String,
     type_: ARType,
-    nesting_level: usize,
+    pub nesting_level: usize,
     members: HashMap<String, Value>,
 }
 
@@ -66,17 +67,25 @@ pub struct SymbolTableBuilder {
 }
 
 impl NodeVisitor for SymbolTableBuilder {
-    fn visit_num(&mut self, _: &mut Num) -> Value {
+    fn visit_num(&mut self, _: &mut Node) -> Value {
         Value::None
     }
 
-    fn visit_bin_op(&mut self, bin_op: &mut BinOp) -> Value {
-        self.visit(&mut bin_op.left);
-        self.visit(&mut bin_op.right)
+    fn visit_bin_op(&mut self, bin_op: &mut Node) -> Value {
+        if let Node::BinOp(left, _, right) = bin_op {
+            self.visit(left);
+            self.visit(right)
+        } else {
+            unreachable!()
+        }
     }
 
-    fn visit_unary_op(&mut self, unary_op: &mut UnaryOp) -> Value {
-        self.visit(&mut unary_op.expr)
+    fn visit_unary_op(&mut self, unary_op: &mut Node) -> Value {
+        if let Node::UnaryOp(_, expr) = unary_op {
+            self.visit(expr)
+        } else {
+            unreachable!()
+        }
     }
 
     fn visit_compound(&mut self, compound: &mut Compound) -> Value {
@@ -87,11 +96,13 @@ impl NodeVisitor for SymbolTableBuilder {
         Value::None
     }
 
-    fn visit_assign(&mut self, assign: &mut Assign) -> Value {
-        let var_name = assign.left.value.expect_string();
-        self.symtab.lookup(var_name, false).unwrap();
+    fn visit_assign(&mut self, assign: &mut Node) -> Value {
+        if let Node::Assign(left, _, right) = assign {
+            let var_name = left.value.expect_string();
+            self.symtab.lookup(var_name, false).unwrap();
 
-        self.visit(&mut assign.right);
+            self.visit(right);
+        }
 
         Value::None
     }
@@ -100,13 +111,17 @@ impl NodeVisitor for SymbolTableBuilder {
         let var_name = var.value.expect_string();
         self.symtab
             .lookup(var_name.clone(), false)
-            // TODO: Use error class
-            .unwrap_or_else(|| panic!("Use of undeclared variable: {}", var_name));
+            .unwrap_or_else(|| {
+                SemanticError::new(format!("Use of undeclared variable: {}", var_name)).throw();
+                unreachable!()
+            });
         Value::None
     }
 
-    fn visit_program(&mut self, program: &mut Program) -> Value {
-        self.visit_block(&mut program.block);
+    fn visit_program(&mut self, program: &mut Node) -> Value {
+        if let Node::Program(_, block) = program {
+            self.visit_block(block);
+        }
         Value::None
     }
 
@@ -119,15 +134,17 @@ impl NodeVisitor for SymbolTableBuilder {
         Value::None
     }
 
-    fn visit_var_decl(&mut self, var_decl: &mut VarDecl) -> Value {
-        let type_symbol = self
-            .symtab
-            .lookup(var_decl.type_node.value.expect_string(), false)
-            .unwrap();
-        let var_name = var_decl.var_node.value.expect_string();
-        let var_symbol = VarSymbol::new(var_name, type_symbol.clone());
+    fn visit_var_decl(&mut self, var_decl: &mut Node) -> Value {
+        if let Node::VarDecl(var_node, type_node) = var_decl {
+            let type_symbol = self
+                .symtab
+                .lookup(type_node.value.expect_string(), false)
+                .unwrap();
+            let var_name = var_node.value.expect_string();
+            let var_symbol = VarSymbol::new(var_name, type_symbol.clone());
 
-        self.symtab.insert(Symbol::Var(Box::new(var_symbol)));
+            self.symtab.insert(Symbol::Var(Box::new(var_symbol)));
+        }
 
         Value::None
     }
@@ -136,7 +153,7 @@ impl NodeVisitor for SymbolTableBuilder {
         Value::None
     }
 
-    fn visit_procedure_decl(&mut self, _: &mut ProcedureDecl) -> Value {
+    fn visit_procedure_decl(&mut self, _: &mut Node) -> Value {
         Value::None
     }
 
@@ -170,12 +187,8 @@ impl SymbolTable {
     }
 
     fn init_builtins(&mut self) {
-        self.insert(Symbol::Builtin(BuiltinTypeSymbol::new(String::from(
-            "INTEGER",
-        ))));
-        self.insert(Symbol::Builtin(BuiltinTypeSymbol::new(String::from(
-            "REAL",
-        ))));
+        self.insert(Symbol::Builtin(String::from("INTEGER")));
+        self.insert(Symbol::Builtin(String::from("REAL")));
     }
 
     pub fn insert(&mut self, symbol: Symbol) {
@@ -198,9 +211,8 @@ impl SymbolTable {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-// TODO: Same as AST, don't need struct
 pub enum Symbol {
-    Builtin(BuiltinTypeSymbol),
+    Builtin(String),
     Var(Box<VarSymbol>),
     Procedure(ProcedureSymbol),
 }
@@ -208,21 +220,10 @@ pub enum Symbol {
 impl Symbol {
     fn name(&self) -> String {
         match self {
-            Symbol::Builtin(b) => b.name.clone(),
+            Symbol::Builtin(b) => b.clone(),
             Symbol::Var(v) => v.name.clone(),
             Symbol::Procedure(p) => p.name.clone(),
         }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct BuiltinTypeSymbol {
-    name: String,
-}
-
-impl BuiltinTypeSymbol {
-    pub fn new(name: String) -> Self {
-        BuiltinTypeSymbol { name }
     }
 }
 
@@ -282,11 +283,11 @@ END.";
         let mut expected = SymbolTable::new(String::from("global"), 1, None);
         expected.insert(Symbol::Var(Box::new(VarSymbol::new(
             "x".to_string(),
-            Symbol::Builtin(BuiltinTypeSymbol::new("INTEGER".to_string())),
+            Symbol::Builtin("INTEGER".to_string()),
         ))));
         expected.insert(Symbol::Var(Box::new(VarSymbol::new(
             "y".to_string(),
-            Symbol::Builtin(BuiltinTypeSymbol::new("REAL".to_string())),
+            Symbol::Builtin("REAL".to_string()),
         ))));
         assert_eq!(expected, symtab_builder.symtab);
     }

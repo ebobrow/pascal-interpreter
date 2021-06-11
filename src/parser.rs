@@ -37,19 +37,19 @@ impl Parser {
         match &token.type_ {
             TokenType::Plus => {
                 self.eat(TokenType::Plus);
-                Node::UnaryOp(Box::new(UnaryOp::new(token, self.factor())))
+                Node::UnaryOp(token, Box::new(self.factor()))
             }
             TokenType::Minus => {
                 self.eat(TokenType::Minus);
-                Node::UnaryOp(Box::new(UnaryOp::new(token, self.factor())))
+                Node::UnaryOp(token, Box::new(self.factor()))
             }
             TokenType::IntegerConst => {
                 self.eat(TokenType::IntegerConst);
-                Node::Num(Num::new(token))
+                Node::Num(token.value)
             }
             TokenType::RealConst => {
                 self.eat(TokenType::RealConst);
-                Node::Num(Num::new(token))
+                Node::Num(token.value)
             }
             TokenType::LeftParen => {
                 self.eat(TokenType::LeftParen);
@@ -69,7 +69,7 @@ impl Parser {
         {
             let token = self.current_token.clone().unwrap();
             self.eat(token.clone().type_);
-            node = Node::BinOp(Box::new(BinOp::new(node, token, self.factor())));
+            node = Node::BinOp(Box::new(node), token, Box::new(self.factor()));
         }
         node
     }
@@ -84,7 +84,7 @@ impl Parser {
                 TokenType::Minus => self.eat(TokenType::Minus),
                 _ => unimplemented!(),
             }
-            node = Node::BinOp(Box::new(BinOp::new(node, token, self.term())));
+            node = Node::BinOp(Box::new(node), token, Box::new(self.term()));
         }
         node
     }
@@ -104,7 +104,7 @@ impl Parser {
         let token = self.current_token.clone().unwrap();
         self.eat(TokenType::Assign);
         let right = self.expr();
-        Node::Assign(Box::new(Assign::new(left, token, right)))
+        Node::Assign(left, token, Box::new(right))
     }
 
     fn statement(&mut self) -> Node {
@@ -156,10 +156,10 @@ impl Parser {
         let prog_name = var_node.value.expect_string();
         self.eat(TokenType::Semi);
         let block_node = self.block();
-        let program_node = Program::new(prog_name, block_node);
+        let program_node = Node::Program(prog_name, Box::new(block_node));
         self.eat(TokenType::Dot);
 
-        Node::Program(Box::new(program_node))
+        program_node
     }
 
     fn block(&mut self) -> Block {
@@ -178,12 +178,12 @@ impl Parser {
             }
         }
         while let TokenType::Procedure = self.current_token.as_ref().unwrap().type_ {
-            declarations.push(Node::ProcedureDecl(Box::new(self.procedure_declaration())))
+            declarations.push(self.procedure_declaration())
         }
         declarations
     }
 
-    fn procedure_declaration(&mut self) -> ProcedureDecl {
+    fn procedure_declaration(&mut self) -> Node {
         self.eat(TokenType::Procedure);
         let proc_name = self.current_token.as_ref().unwrap().value.clone();
         self.eat(TokenType::ID);
@@ -198,7 +198,7 @@ impl Parser {
         }
 
         self.eat(TokenType::Semi);
-        let proc_decl = ProcedureDecl::new(proc_name.to_string(), params, self.block());
+        let proc_decl = Node::ProcedureDecl(proc_name.to_string(), Box::new(self.block()), params);
         self.eat(TokenType::Semi);
         proc_decl
     }
@@ -218,7 +218,7 @@ impl Parser {
         let type_node = self.type_spec();
         let mut var_declarations = Vec::new();
         for node in var_nodes {
-            var_declarations.push(Node::VarDecl(VarDecl::new(node, type_node.clone())));
+            var_declarations.push(Node::VarDecl(node, type_node.clone()));
         }
         var_declarations
     }
@@ -296,7 +296,7 @@ impl Parser {
 
     pub fn parse(&mut self) -> Node {
         let node = self.program();
-        if let TokenType::EOF = self.current_token.as_ref().unwrap().type_ {
+        if let TokenType::Eof = self.current_token.as_ref().unwrap().type_ {
             node
         } else {
             panic!("Stuff after the end");

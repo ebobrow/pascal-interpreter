@@ -19,29 +19,27 @@ impl SemanticAnalyzer {
     fn error(&self, error_code: ErrorCode, token: Token) {
         SemanticError::new(
             format!("{} -> {}", error_code.to_string(), token),
-            error_code,
-            token,
+            // error_code,
+            // token,
         )
         .throw();
-    }
-
-    pub fn print_symbols(&self) {
-        println!("Semantic analyzer symbols: {:#?}", self.current_scope);
     }
 }
 
 impl NodeVisitor for SemanticAnalyzer {
-    fn visit_num(&mut self, _: &mut Num) -> Value {
+    fn visit_num(&mut self, _: &mut Node) -> Value {
         Value::None
     }
 
-    fn visit_bin_op(&mut self, op: &mut BinOp) -> Value {
-        self.visit(&mut op.left);
-        self.visit(&mut op.right);
+    fn visit_bin_op(&mut self, op: &mut Node) -> Value {
+        if let Node::BinOp(left, _, right) = op {
+            self.visit(left);
+            self.visit(right);
+        }
         Value::None
     }
 
-    fn visit_unary_op(&mut self, _: &mut UnaryOp) -> Value {
+    fn visit_unary_op(&mut self, _: &mut Node) -> Value {
         Value::None
     }
 
@@ -53,9 +51,11 @@ impl NodeVisitor for SemanticAnalyzer {
         Value::None
     }
 
-    fn visit_assign(&mut self, assign: &mut Assign) -> Value {
-        self.visit(&mut assign.right);
-        self.visit_var(&mut assign.left);
+    fn visit_assign(&mut self, assign: &mut Node) -> Value {
+        if let Node::Assign(left, _, right) = assign {
+            self.visit(right);
+            self.visit_var(left);
+        }
 
         Value::None
     }
@@ -72,10 +72,12 @@ impl NodeVisitor for SemanticAnalyzer {
         Value::None
     }
 
-    fn visit_program(&mut self, program: &mut Program) -> Value {
+    fn visit_program(&mut self, program: &mut Node) -> Value {
         println!("ENTER scope: global");
         self.current_scope = SymbolTable::new(String::from("global"), 1, None);
-        self.visit_block(&mut program.block);
+        if let Node::Program(_, block) = program {
+            self.visit_block(block);
+        }
         self.current_scope = *std::mem::replace(&mut self.current_scope.enclosing_scope, None)
             .unwrap_or_else(|| Box::new(SymbolTable::new(String::new(), 0, None)));
         // self.print_symbols();
@@ -92,23 +94,22 @@ impl NodeVisitor for SemanticAnalyzer {
         Value::None
     }
 
-    fn visit_var_decl(&mut self, var_decl: &mut VarDecl) -> Value {
-        let var_name = var_decl.var_node.value.expect_string();
-        if self.current_scope.lookup(var_name.clone(), true).is_some() {
-            self.error(ErrorCode::DuplicateID, var_decl.var_node.token.clone());
-        }
+    fn visit_var_decl(&mut self, var_decl: &mut Node) -> Value {
+        if let Node::VarDecl(var_node, type_node) = var_decl {
+            let var_name = var_node.value.expect_string();
+            if self.current_scope.lookup(var_name.clone(), true).is_some() {
+                self.error(ErrorCode::DuplicateID, var_node.token.clone());
+            }
 
-        self.current_scope
-            .insert(Symbol::Var(Box::new(VarSymbol::new(
-                var_name,
-                self.current_scope
-                    .lookup(
-                        var_decl.type_node.value.expect_string().to_uppercase(),
-                        false,
-                    )
-                    .unwrap()
-                    .clone(),
-            ))));
+            self.current_scope
+                .insert(Symbol::Var(Box::new(VarSymbol::new(
+                    var_name,
+                    self.current_scope
+                        .lookup(type_node.value.expect_string().to_uppercase(), false)
+                        .unwrap()
+                        .clone(),
+                ))));
+        }
 
         Value::None
     }
@@ -117,47 +118,47 @@ impl NodeVisitor for SemanticAnalyzer {
         Value::None
     }
 
-    fn visit_procedure_decl(&mut self, procedure_decl: &mut ProcedureDecl) -> Value {
-        let mut proc_symbol = ProcedureSymbol::new(procedure_decl.proc_name.clone(), Vec::new());
-        // self.current_scope
-        //     .insert(Symbol::Procedure(proc_symbol.clone()));
+    fn visit_procedure_decl(&mut self, procedure_decl: &mut Node) -> Value {
+        if let Node::ProcedureDecl(proc_name, block_node, formal_params) = procedure_decl {
+            let mut proc_symbol = ProcedureSymbol::new(proc_name.clone(), Vec::new());
+            // self.current_scope
+            //     .insert(Symbol::Procedure(proc_symbol.clone()));
 
-        println!("ENTER scope: {}", procedure_decl.proc_name.clone());
+            println!("ENTER scope: {}", proc_name.clone());
 
-        let level = self.current_scope.scope_level + 1;
-        let prev_scope = std::mem::replace(
-            &mut self.current_scope,
-            SymbolTable::new(String::from("tmp"), 0, None),
-        );
-        self.current_scope =
-            SymbolTable::new(procedure_decl.proc_name.clone(), level, Some(prev_scope));
-
-        for param in &procedure_decl.formal_params {
-            let var_symbol = VarSymbol::new(
-                param.var_node.value.expect_string(),
-                self.current_scope
-                    .lookup(param.type_node.value.expect_string().to_uppercase(), false)
-                    .unwrap()
-                    .clone(),
+            let level = self.current_scope.scope_level + 1;
+            let prev_scope = std::mem::replace(
+                &mut self.current_scope,
+                SymbolTable::new(String::from("tmp"), 0, None),
             );
-            self.current_scope
-                .insert(Symbol::Var(Box::new(var_symbol.clone())));
-            proc_symbol.formal_params.push(var_symbol);
+            self.current_scope = SymbolTable::new(proc_name.clone(), level, Some(prev_scope));
+
+            for param in formal_params {
+                let var_symbol = VarSymbol::new(
+                    param.var_node.value.expect_string(),
+                    self.current_scope
+                        .lookup(param.type_node.value.expect_string().to_uppercase(), false)
+                        .unwrap()
+                        .clone(),
+                );
+                self.current_scope
+                    .insert(Symbol::Var(Box::new(var_symbol.clone())));
+                proc_symbol.formal_params.push(var_symbol);
+            }
+            proc_symbol.block_ast = Some(block_node.clone());
+            if let Some(scope) = self.current_scope.enclosing_scope.as_mut() {
+                scope.insert(Symbol::Procedure(proc_symbol))
+            };
+
+            self.visit_block(block_node);
+
+            // self.print_symbols();
+            self.current_scope =
+                *std::mem::replace(&mut self.current_scope.enclosing_scope, None).unwrap();
+            println!("LEAVE scope: {}", proc_name.clone());
+
+            // proc_symbol.block_ast = Some(Box::new(procedure_decl.block_node.clone()));
         }
-        proc_symbol.block_ast = Some(Box::new(procedure_decl.block_node.clone()));
-        self.current_scope
-            .enclosing_scope
-            .as_mut()
-            .map(|scope| scope.insert(Symbol::Procedure(proc_symbol.clone())));
-
-        self.visit_block(&mut procedure_decl.block_node);
-
-        // self.print_symbols();
-        self.current_scope =
-            *std::mem::replace(&mut self.current_scope.enclosing_scope, None).unwrap();
-        println!("LEAVE scope: {}", procedure_decl.proc_name.clone());
-
-        // proc_symbol.block_ast = Some(Box::new(procedure_decl.block_node.clone()));
 
         Value::None
     }

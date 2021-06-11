@@ -210,7 +210,7 @@ impl Lexer {
                 }
             }
         }
-        Token::new(TokenType::EOF, Value::None, self.lineno, self.column)
+        Token::new(TokenType::Eof, Value::None, self.lineno, self.column)
     }
 
     fn peek(&self) -> Option<char> {

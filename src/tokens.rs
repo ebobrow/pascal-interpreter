@@ -31,7 +31,7 @@ pub enum TokenType {
     Colon,
     Comma,
 
-    EOF,
+    Eof,
 }
 
 #[derive(Clone, PartialEq, Debug)]

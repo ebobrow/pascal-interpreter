@@ -35,16 +35,16 @@ impl LexerError {
 
 pub struct ParserError {
     message: String,
-    error_code: ErrorCode,
-    token: Token,
+    // error_code: ErrorCode,
+    // token: Token,
 }
 
 impl ParserError {
-    pub fn new(message: String, error_code: ErrorCode, token: Token) -> Self {
+    pub fn new(message: String, _error_code: ErrorCode, _token: Token) -> Self {
         ParserError {
             message,
-            error_code,
-            token,
+            // error_code,
+            // token,
         }
     }
 
@@ -55,16 +55,17 @@ impl ParserError {
 
 pub struct SemanticError {
     message: String,
-    error_code: ErrorCode,
-    token: Token,
+    // error_code: ErrorCode,
+    // token: Token,
 }
 
 impl SemanticError {
-    pub fn new(message: String, error_code: ErrorCode, token: Token) -> Self {
+    pub fn new(message: String, // , _error_code: ErrorCode, _token: Token
+    ) -> Self {
         SemanticError {
             message,
-            error_code,
-            token,
+            // error_code,
+            // token,
         }
     }
 

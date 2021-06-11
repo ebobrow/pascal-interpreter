@@ -13,11 +13,14 @@ use crate::parser::Parser;
 use crate::semantic_analyzer::SemanticAnalyzer;
 use std::{env, fs};
 
+// TODO:
+// - More tests
+// - Docstrings (for me)?
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = env::args().collect();
     let source = fs::read_to_string(args[1].clone())?;
 
-    let lexer = Lexer::new(source.clone());
+    let lexer = Lexer::new(source);
     let mut parser = Parser::new(lexer);
     let mut tree = parser.parse();
 
